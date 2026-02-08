@@ -141,7 +141,7 @@ const handleRequestLoan = async () => {
         <View>
           <Text style={styles.loanLimitLabel}>ЦАХИМ ЗЭЭЛ - ДЭЭД ЭРХ</Text>
           <Text style={styles.loanLimitSubtitle}>
-            Таны авч болох зээлийн үлдэгдэл
+            Таны авч болох зээлийн дээд хэмжээ
           </Text>
         </View>
         <Ionicons name="card-outline" size={32} color={colors.primary} />
