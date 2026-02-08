@@ -89,77 +89,77 @@ export default function ProfileFormScreen({ navigation }) {
   };
 
   const handleSubmit = async () => {
-    // Validation
-    if (!formData.registerNumber || !formData.dateOfBirth) {
-      Alert.alert('Алдаа', 'Регистрийн дугаар болон төрсөн өдрөө оруулна уу');
-      return;
+  // Validation
+  if (!formData.registerNumber || !formData.dateOfBirth) {
+    Alert.alert('Алдаа', 'Регистрийн дугаар болон төрсөн өдрөө оруулна уу');
+    return;
+  }
+
+  if (!formData.bankName || !formData.accountNumber || !formData.accountName) {
+    Alert.alert('Алдаа', 'Банкны мэдээллээ бүрэн бөглөнө үү');
+    return;
+  }
+
+  // ✅ ЗАСВАРЛАСАН: Зураг заавал биш болгов
+  // if (!idCardFront || !idCardBack || !selfiePhoto) {
+  //   Alert.alert('Алдаа', 'Бүх зургуудаа оруулна уу');
+  //   return;
+  // }
+
+  try {
+    setLoading(true);
+
+    // Backend-д илгээх өгөгдөл бэлдэх
+    const profileData = {
+      registerNumber: formData.registerNumber,
+      dateOfBirth: new Date(formData.dateOfBirth),
+      gender: formData.gender,
+      emergencyContact: {
+        name: formData.emergencyContactName,
+        relationship: formData.emergencyContactRelationship,
+        phone: formData.emergencyContactPhone,
+      },
+      address: {
+        city: formData.city,
+        district: formData.district,
+        khoroo: formData.khoroo || '',
+      },
+      education: {
+        level: formData.educationLevel,
+      },
+      employment: {
+        status: formData.employmentStatus,
+        companyName: formData.companyName || '',
+        position: formData.position || '',
+        monthlyIncome: parseInt(formData.monthlyIncome) || 0,
+      },
+      bankAccount: {
+        bankName: formData.bankName,
+        accountNumber: formData.accountNumber,
+        accountName: formData.accountName,
+      },
+      // ✅ ЗАСВАРЛАСАН: Зураг байвал илгээх, байхгүй бол илгээхгүй
+      ...(idCardFront && { idCardFront }),
+      ...(idCardBack && { idCardBack }),
+      ...(selfiePhoto && { selfiePhoto }),
+    };
+
+    const response = await api.createProfile(profileData);
+
+    if (response.success) {
+      Alert.alert('Амжилттай', 'Хувийн мэдээлэл илгээгдлээ. Админ баталгаажуулна.', [
+        {
+          text: 'За',
+          onPress: () => navigation.goBack(),
+        },
+      ]);
     }
-
-    if (!formData.bankName || !formData.accountNumber || !formData.accountName) {
-      Alert.alert('Алдаа', 'Банкны мэдээллээ бүрэн бөглөнө үү');
-      return;
-    }
-
-    // ✅ ШИНЭ: Зургийн validation
-    if (!idCardFront || !idCardBack || !selfiePhoto) {
-      Alert.alert('Алдаа', 'Бүх зургуудаа оруулна уу');
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      // Backend-д илгээх өгөгдөл бэлдэх
-      const profileData = {
-        registerNumber: formData.registerNumber,
-        dateOfBirth: new Date(formData.dateOfBirth),
-        gender: formData.gender,
-        emergencyContact: {
-          name: formData.emergencyContactName,
-          relationship: formData.emergencyContactRelationship,
-          phone: formData.emergencyContactPhone,
-        },
-        address: {
-          city: formData.city,
-          district: formData.district,
-          khoroo: formData.khoroo || '',
-        },
-        education: {
-          level: formData.educationLevel,
-        },
-        employment: {
-          status: formData.employmentStatus,
-          companyName: formData.companyName || '',
-          position: formData.position || '',
-          monthlyIncome: parseInt(formData.monthlyIncome) || 0,
-        },
-        bankAccount: {
-          bankName: formData.bankName,
-          accountNumber: formData.accountNumber,
-          accountName: formData.accountName,
-        },
-        // ✅ ШИНЭ: Зургууд
-        idCardFront,
-        idCardBack,
-        selfiePhoto,
-      };
-
-      const response = await api.createProfile(profileData);
-
-      if (response.success) {
-        Alert.alert('Амжилттай', 'Хувийн мэдээлэл илгээгдлээ. Админ баталгаажуулна.', [
-          {
-            text: 'За',
-            onPress: () => navigation.goBack(),
-          },
-        ]);
-      }
-    } catch (error) {
-      Alert.alert('Алдаа', error.message || 'Хувийн мэдээлэл хадгалахад алдаа гарлаа');
-    } finally {
-      setLoading(false);
-    }
-  };
+  } catch (error) {
+    Alert.alert('Алдаа', error.message || 'Хувийн мэдээлэл хадгалахад алдаа гарлаа');
+  } finally {
+    setLoading(false);
+  }
+};
 
   // ✅ ШИНЭ: Зураг харуулах component
   const ImageUploadBox = ({ title, image, onPress }) => (
