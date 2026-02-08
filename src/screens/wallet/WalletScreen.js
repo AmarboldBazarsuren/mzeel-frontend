@@ -24,6 +24,7 @@ import colors from '../../styles/colors';
 
 export default function WalletScreen({ navigation }) {
   const [wallet, setWallet] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   
@@ -32,14 +33,9 @@ export default function WalletScreen({ navigation }) {
   const [depositAmount, setDepositAmount] = useState('');
   const [depositLoading, setDepositLoading] = useState(false);
   
-  // ✅ Withdrawal modal
+  // Withdrawal modal
   const [withdrawalModal, setWithdrawalModal] = useState(false);
-  const [withdrawalData, setWithdrawalData] = useState({
-    amount: '',
-    bankName: '',
-    accountNumber: '',
-    accountName: '',
-  });
+  const [withdrawalAmount, setWithdrawalAmount] = useState('');
   const [withdrawalLoading, setWithdrawalLoading] = useState(false);
 
   useEffect(() => {
@@ -49,9 +45,10 @@ export default function WalletScreen({ navigation }) {
   const loadWallet = async () => {
     try {
       setLoading(true);
-      const [walletRes, historyRes] = await Promise.all([
+      const [walletRes, historyRes, profileRes] = await Promise.all([
         api.getWallet(),
         api.getWalletHistory(1),
+        api.getProfile(),
       ]);
 
       if (walletRes.success) {
@@ -60,6 +57,10 @@ export default function WalletScreen({ navigation }) {
 
       if (historyRes.success) {
         setTransactions(historyRes.data.transactions);
+      }
+
+      if (profileRes.success) {
+        setProfile(profileRes.data.profile);
       }
     } catch (error) {
       Alert.alert('Алдаа', 'Өгөгдөл татахад алдаа гарлаа');
@@ -103,9 +104,8 @@ export default function WalletScreen({ navigation }) {
     }
   };
 
-  // ✅ Мөнгө татах function
   const handleWithdrawal = async () => {
-    const amount = parseInt(withdrawalData.amount);
+    const amount = parseInt(withdrawalAmount);
 
     // Validation
     if (!amount || amount < 1000) {
@@ -118,13 +118,22 @@ export default function WalletScreen({ navigation }) {
       return;
     }
 
-    if (!withdrawalData.bankName || !withdrawalData.accountNumber || !withdrawalData.accountName) {
-      Alert.alert('Алдаа', 'Бүх талбарыг бөглөнө үү');
+    if (!profile || !profile.bankAccount) {
+      Alert.alert('Алдаа', 'Та эхлээд профайлдаа банкны мэдээлэл оруулна уу');
       return;
     }
 
     try {
       setWithdrawalLoading(true);
+      
+      // Профайлаас банкны мэдээлэл авч withdrawal үүсгэх
+      const withdrawalData = {
+        amount: amount,
+        bankName: profile.bankAccount.bankName,
+        accountNumber: profile.bankAccount.accountNumber,
+        accountName: profile.bankAccount.accountName,
+      };
+
       const response = await api.createWithdrawal(withdrawalData);
 
       if (response.success) {
@@ -136,12 +145,7 @@ export default function WalletScreen({ navigation }) {
               text: 'За',
               onPress: () => {
                 setWithdrawalModal(false);
-                setWithdrawalData({
-                  amount: '',
-                  bankName: '',
-                  accountNumber: '',
-                  accountName: '',
-                });
+                setWithdrawalAmount('');
                 loadWallet();
               },
             },
@@ -207,7 +211,6 @@ export default function WalletScreen({ navigation }) {
             <Text style={styles.actionText}>Цэнэглэх</Text>
           </TouchableOpacity>
 
-          {/* ✅ Татах button */}
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => setWithdrawalModal(true)}
@@ -299,7 +302,7 @@ export default function WalletScreen({ navigation }) {
         </View>
       </ScrollView>
 
-      {/* ✅ Deposit Modal - KeyboardAvoidingView нэмэх */}
+      {/* Deposit Modal */}
       <Modal
         visible={depositModal}
         transparent
@@ -310,42 +313,47 @@ export default function WalletScreen({ navigation }) {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.modalOverlay}
         >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Хэтэвч цэнэглэх</Text>
-              <TouchableOpacity onPress={() => setDepositModal(false)}>
-                <Ionicons name="close" size={24} color={colors.white} />
-              </TouchableOpacity>
-            </View>
+          <ScrollView
+            contentContainerStyle={styles.modalScrollContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Хэтэвч цэнэглэх</Text>
+                <TouchableOpacity onPress={() => setDepositModal(false)}>
+                  <Ionicons name="close" size={24} color={colors.white} />
+                </TouchableOpacity>
+              </View>
 
-            <View style={styles.modalInfo}>
-              <Text style={styles.infoText}>
-                💳 QPay ашиглан цэнэглэх дүнгээ оруулна уу
+              <View style={styles.modalInfo}>
+                <Text style={styles.infoText}>
+                  💳 QPay ашиглан цэнэглэх дүнгээ оруулна уу
+                </Text>
+              </View>
+
+              <Input
+                label="Дүн (₮)"
+                placeholder="50000"
+                value={depositAmount}
+                onChangeText={setDepositAmount}
+                keyboardType="number-pad"
+              />
+
+              <Text style={styles.modalNote}>
+                ℹ️ Хамгийн багадаа 1,000₮ цэнэглэх боломжтой
               </Text>
+
+              <Button
+                title="Үргэлжлүүлэх"
+                onPress={handleDeposit}
+                loading={depositLoading}
+              />
             </View>
-
-            <Input
-              label="Дүн (₮)"
-              placeholder="50000"
-              value={depositAmount}
-              onChangeText={setDepositAmount}
-              keyboardType="number-pad"
-            />
-
-            <Text style={styles.modalNote}>
-              ℹ️ Хамгийн багадаа 1,000₮ цэнэглэх боломжтой
-            </Text>
-
-            <Button
-              title="Үргэлжлүүлэх"
-              onPress={handleDeposit}
-              loading={depositLoading}
-            />
-          </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* ✅ ШИНЭ: Withdrawal Modal */}
+      {/* Withdrawal Modal */}
       <Modal
         visible={withdrawalModal}
         transparent
@@ -377,32 +385,42 @@ export default function WalletScreen({ navigation }) {
               <Input
                 label="Татах дүн (₮)"
                 placeholder="50000"
-                value={withdrawalData.amount}
-                onChangeText={(text) => setWithdrawalData({ ...withdrawalData, amount: text })}
+                value={withdrawalAmount}
+                onChangeText={setWithdrawalAmount}
                 keyboardType="number-pad"
               />
 
-              <Input
-                label="Банкны нэр"
-                placeholder="Жишээ: Хаан банк"
-                value={withdrawalData.bankName}
-                onChangeText={(text) => setWithdrawalData({ ...withdrawalData, bankName: text })}
-              />
+              {/* Түгжигдсэн банкны мэдээлэл */}
+              {profile?.bankAccount ? (
+                <View style={styles.lockedBankInfo}>
+                  <View style={styles.lockedLabel}>
+                    <Ionicons name="lock-closed" size={16} color={colors.lightGray} />
+                    <Text style={styles.lockedLabelText}>Бүртгэлтэй данс</Text>
+                  </View>
 
-              <Input
-                label="Дансны дугаар"
-                placeholder="1234567890"
-                value={withdrawalData.accountNumber}
-                onChangeText={(text) => setWithdrawalData({ ...withdrawalData, accountNumber: text })}
-                keyboardType="number-pad"
-              />
+                  <View style={styles.lockedField}>
+                    <Text style={styles.lockedFieldLabel}>Банк</Text>
+                    <Text style={styles.lockedFieldValue}>{profile.bankAccount.bankName}</Text>
+                  </View>
 
-              <Input
-                label="Дансны эзэмшигч"
-                placeholder="Овог Нэр"
-                value={withdrawalData.accountName}
-                onChangeText={(text) => setWithdrawalData({ ...withdrawalData, accountName: text })}
-              />
+                  <View style={styles.lockedField}>
+                    <Text style={styles.lockedFieldLabel}>Дансны дугаар</Text>
+                    <Text style={styles.lockedFieldValue}>{profile.bankAccount.accountNumber}</Text>
+                  </View>
+
+                  <View style={styles.lockedField}>
+                    <Text style={styles.lockedFieldLabel}>Эзэмшигч</Text>
+                    <Text style={styles.lockedFieldValue}>{profile.bankAccount.accountName}</Text>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.warningBox}>
+                  <Ionicons name="warning" size={20} color={colors.warning} />
+                  <Text style={styles.warningText}>
+                    Та эхлээд профайлдаа банкны мэдээлэл оруулна уу
+                  </Text>
+                </View>
+              )}
 
               <Text style={styles.modalNote}>
                 ℹ️ Таны хүсэлтийг 1-2 хоногт боловсруулна
@@ -412,6 +430,7 @@ export default function WalletScreen({ navigation }) {
                 title="Хүсэлт илгээх"
                 onPress={handleWithdrawal}
                 loading={withdrawalLoading}
+                disabled={!profile?.bankAccount}
               />
             </View>
           </ScrollView>
@@ -604,5 +623,49 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: 16,
     marginTop: -8,
+  },
+  lockedBankInfo: {
+    backgroundColor: colors.darkGray,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  lockedLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  lockedLabelText: {
+    color: colors.lightGray,
+    fontSize: 12,
+    marginLeft: 6,
+    fontWeight: '500',
+  },
+  lockedField: {
+    marginBottom: 12,
+  },
+  lockedFieldLabel: {
+    color: colors.lightGray,
+    fontSize: 11,
+    marginBottom: 4,
+  },
+  lockedFieldValue: {
+    color: colors.white,
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  warningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.warning + '20',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  warningText: {
+    color: colors.warning,
+    fontSize: 12,
+    marginLeft: 8,
+    flex: 1,
   },
 });

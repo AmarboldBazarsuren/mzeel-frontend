@@ -10,6 +10,8 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
+  KeyboardAvoidingView,
+  Platform
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -48,74 +50,41 @@ export default function LoanDetailScreen({ route, navigation }) {
     }
   };
 
-  // mzeel-app/src/screens/loans/LoanDetailScreen.js
-// Payment Modal доторх handlePayment function
+  const handlePayment = async () => {
+    const amount = parseInt(paymentAmount);
 
-const handlePayment = async () => {
-  const amount = parseInt(paymentAmount);
-
-  if (!amount || amount <= 0) {
-    Alert.alert('Алдаа', 'Төлөх дүнгээ оруулна уу');
-    return;
-  }
-
-  if (amount > loan.remainingAmount) {
-    Alert.alert('Алдаа', `Үлдэгдэл ${formatCurrency(loan.remainingAmount)}`);
-    return;
-  }
-
-  // ✅ Хэтэвчний үлдэгдэл шалгах
-  try {
-    const walletRes = await api.getWallet();
-    if (!walletRes.success) {
-      Alert.alert('Алдаа', 'Хэтэвчний мэдээлэл татахад алдаа гарлаа');
+    if (!amount || amount <= 0) {
+      Alert.alert('Алдаа', 'Төлөх дүнгээ оруулна уу');
       return;
     }
 
-    const wallet = walletRes.data.wallet;
+    if (amount > loan.remainingAmount) {
+      Alert.alert('Алдаа', `Үлдэгдэл ${formatCurrency(loan.remainingAmount)}`);
+      return;
+    }
 
-    if (wallet.balance < amount) {
-      Alert.alert(
-        'Хэтэвчний үлдэгдэл хүрэлцэхгүй',
-        `Таны хэтэвчинд ${formatCurrency(wallet.balance)} байна.\n\nЭхлээд ${formatCurrency(amount - wallet.balance)} цэнэглэх хэрэгтэй.`,
-        [
-          { text: 'Болих', style: 'cancel' },
+    try {
+      setPaymentLoading(true);
+      const response = await api.payLoan(loanId, amount);
+
+      if (response.success) {
+        Alert.alert('Амжилттай', 'Төлбөр амжилттай төлөгдлөө', [
           {
-            text: 'Цэнэглэх',
+            text: 'За',
             onPress: () => {
               setPaymentModal(false);
-              navigation.navigate('Wallet');
-            }
-          }
-        ]
-      );
-      return;
-    }
-
-    // Төлбөр төлөх
-    if (!window.confirm(`${formatCurrency(amount)} төлөх үү?`)) return;
-
-    setPaymentLoading(true);
-    const response = await api.payLoan(loanId, amount);
-
-    if (response.success) {
-      Alert.alert('Амжилттай', 'Төлбөр амжилттай төлөгдлөө', [
-        {
-          text: 'За',
-          onPress: () => {
-            setPaymentModal(false);
-            setPaymentAmount('');
-            loadLoan();
+              setPaymentAmount('');
+              loadLoan();
+            },
           },
-        },
-      ]);
+        ]);
+      }
+    } catch (error) {
+      Alert.alert('Алдаа', error.message || 'Төлбөр төлөхөд алдаа гарлаа');
+    } finally {
+      setPaymentLoading(false);
     }
-  } catch (error) {
-    Alert.alert('Алдаа', error.message || 'Төлбөр төлөхөд алдаа гарлаа');
-  } finally {
-    setPaymentLoading(false);
-  }
-};
+  };
 
   if (loading) {
     return (
@@ -278,31 +247,39 @@ const handlePayment = async () => {
         animationType="slide"
         onRequestClose={() => setPaymentModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Төлбөр төлөх</Text>
-              <TouchableOpacity onPress={() => setPaymentModal(false)}>
-                <Ionicons name="close" size={24} color={colors.white} />
-              </TouchableOpacity>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <ScrollView 
+            contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end' }}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Төлбөр төлөх</Text>
+                <TouchableOpacity onPress={() => setPaymentModal(false)}>
+                  <Ionicons name="close" size={24} color={colors.white} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.modalInfo}>
+                <Text style={styles.modalLabel}>Үлдэгдэл</Text>
+                <Text style={styles.modalValue}>{formatCurrency(loan?.remainingAmount || 0)}</Text>
+              </View>
+
+              <Input
+                label="Төлөх дүн (₮)"
+                placeholder="Дүнгээ оруулна уу"
+                value={paymentAmount}
+                onChangeText={setPaymentAmount}
+                keyboardType="number-pad"
+              />
+
+              <Button title="Төлөх" onPress={handlePayment} loading={paymentLoading} />
             </View>
-
-            <View style={styles.modalInfo}>
-              <Text style={styles.modalLabel}>Үлдэгдэл</Text>
-              <Text style={styles.modalValue}>{formatCurrency(loan?.remainingAmount || 0)}</Text>
-            </View>
-
-            <Input
-              label="Төлөх дүн (₮)"
-              placeholder="Дүнгээ оруулна уу"
-              value={paymentAmount}
-              onChangeText={setPaymentAmount}
-              keyboardType="number-pad"
-            />
-
-            <Button title="Төлөх" onPress={handlePayment} loading={paymentLoading} />
-          </View>
-        </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

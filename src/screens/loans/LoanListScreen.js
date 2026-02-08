@@ -33,10 +33,14 @@ export default function LoanListScreen({ navigation }) {
       setLoading(true);
       const response = await api.getMyLoans(1);
 
-      if (response.success) {
-        setLoans(response.data.loans);
-        setStats(response.data.stats);
-      }
+       if (response.success) {
+      // ✅ ШИНЭ: approved зээлийг түүхэнд ХАРУУЛАХГҮЙ
+      const filteredLoans = response.data.loans.filter(loan => 
+        loan.status !== 'approved'
+      );
+      setLoans(filteredLoans); // Өмнө: setLoans(response.data.loans)
+      setStats(response.data.stats);
+    }
     } catch (error) {
       Alert.alert('Алдаа', 'Зээлийн мэдээлэл татахад алдаа гарлаа');
     } finally {

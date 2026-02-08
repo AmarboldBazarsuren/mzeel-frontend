@@ -73,7 +73,8 @@ export const api = {
   // Profile
   getProfile: () => client.get('/profile'),
   createProfile: (data) => client.post('/profile', data),
-
+// ✅ Profile by user ID
+getProfileByUserId: (userId) => client.get(`/admin/profiles/user/${userId}`),
   // Transactions
   getTransactions: (page = 1, type) => {
     let url = `/transactions?page=${page}`;

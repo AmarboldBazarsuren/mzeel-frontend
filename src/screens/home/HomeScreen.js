@@ -95,11 +95,7 @@ const LoanLimitCard = () => {
       return;
     }
 
-    if (activeLoans.length > 0) {
-      Alert.alert('Идэвхтэй зээл байна', 'Эхлээд өмнөх зээлээ төлнө үү');
-      return;
-    }
-
+   
     // Дүн оруулуулах
     Alert.prompt(
       'Зээл авах',
