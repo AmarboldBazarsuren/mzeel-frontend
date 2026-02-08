@@ -48,41 +48,74 @@ export default function LoanDetailScreen({ route, navigation }) {
     }
   };
 
-  const handlePayment = async () => {
-    const amount = parseInt(paymentAmount);
+  // mzeel-app/src/screens/loans/LoanDetailScreen.js
+// Payment Modal доторх handlePayment function
 
-    if (!amount || amount <= 0) {
-      Alert.alert('Алдаа', 'Төлөх дүнгээ оруулна уу');
+const handlePayment = async () => {
+  const amount = parseInt(paymentAmount);
+
+  if (!amount || amount <= 0) {
+    Alert.alert('Алдаа', 'Төлөх дүнгээ оруулна уу');
+    return;
+  }
+
+  if (amount > loan.remainingAmount) {
+    Alert.alert('Алдаа', `Үлдэгдэл ${formatCurrency(loan.remainingAmount)}`);
+    return;
+  }
+
+  // ✅ Хэтэвчний үлдэгдэл шалгах
+  try {
+    const walletRes = await api.getWallet();
+    if (!walletRes.success) {
+      Alert.alert('Алдаа', 'Хэтэвчний мэдээлэл татахад алдаа гарлаа');
       return;
     }
 
-    if (amount > loan.remainingAmount) {
-      Alert.alert('Алдаа', `Үлдэгдэл ${formatCurrency(loan.remainingAmount)}`);
-      return;
-    }
+    const wallet = walletRes.data.wallet;
 
-    try {
-      setPaymentLoading(true);
-      const response = await api.payLoan(loanId, amount);
-
-      if (response.success) {
-        Alert.alert('Амжилттай', 'Төлбөр амжилттай төлөгдлөө', [
+    if (wallet.balance < amount) {
+      Alert.alert(
+        'Хэтэвчний үлдэгдэл хүрэлцэхгүй',
+        `Таны хэтэвчинд ${formatCurrency(wallet.balance)} байна.\n\nЭхлээд ${formatCurrency(amount - wallet.balance)} цэнэглэх хэрэгтэй.`,
+        [
+          { text: 'Болих', style: 'cancel' },
           {
-            text: 'За',
+            text: 'Цэнэглэх',
             onPress: () => {
               setPaymentModal(false);
-              setPaymentAmount('');
-              loadLoan();
-            },
-          },
-        ]);
-      }
-    } catch (error) {
-      Alert.alert('Алдаа', error.message || 'Төлбөр төлөхөд алдаа гарлаа');
-    } finally {
-      setPaymentLoading(false);
+              navigation.navigate('Wallet');
+            }
+          }
+        ]
+      );
+      return;
     }
-  };
+
+    // Төлбөр төлөх
+    if (!window.confirm(`${formatCurrency(amount)} төлөх үү?`)) return;
+
+    setPaymentLoading(true);
+    const response = await api.payLoan(loanId, amount);
+
+    if (response.success) {
+      Alert.alert('Амжилттай', 'Төлбөр амжилттай төлөгдлөө', [
+        {
+          text: 'За',
+          onPress: () => {
+            setPaymentModal(false);
+            setPaymentAmount('');
+            loadLoan();
+          },
+        },
+      ]);
+    }
+  } catch (error) {
+    Alert.alert('Алдаа', error.message || 'Төлбөр төлөхөд алдаа гарлаа');
+  } finally {
+    setPaymentLoading(false);
+  }
+};
 
   if (loading) {
     return (

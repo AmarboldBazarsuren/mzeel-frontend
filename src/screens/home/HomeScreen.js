@@ -65,7 +65,76 @@ const LoanLimitCard = () => {
     const res = await api.getProfile();
     if (res.success) setProfile(res.data.profile);
   };
+// mzeel-app/src/screens/home/HomeScreen.js - Зээл авах хэсэг
 
+const handleRequestLoan = async () => {
+  try {
+    // 1. Profile шалгах
+    const profileRes = await api.getProfile();
+    if (!profileRes.success || !profileRes.data.profile) {
+      Alert.alert(
+        'Хувийн мэдээлэл шаардлагатай',
+        'Эхлээд хувийн мэдээллээ бөглөнө үү',
+        [{ text: 'За', onPress: () => navigation.navigate('ProfileForm') }]
+      );
+      return;
+    }
+
+    const profile = profileRes.data.profile;
+
+    if (!profile.isVerified) {
+      Alert.alert(
+        'Баталгаажуулалт хүлээгдэж байна',
+        'Таны хувийн мэдээллийг админ баталгаажуулж байна. Түр хүлээнэ үү.'
+      );
+      return;
+    }
+
+    if (profile.availableLoanLimit <= 0) {
+      Alert.alert('Зээлийн эрх байхгүй', 'Та зээл авах эрхгүй байна');
+      return;
+    }
+
+    // 2. Идэвхтэй зээл байгаа эсэхийг шалгах
+    const loansRes = await api.getMyLoans(1);
+    const activeLoans = loansRes.data.loans.filter(loan => 
+      ['pending_verification', 'under_review', 'approved', 'disbursed', 'active', 'overdue'].includes(loan.status)
+    );
+
+    if (activeLoans.length > 0) {
+      Alert.alert('Идэвхтэй зээл байна', 'Та өмнөх зээлээ төлсний дараа шинэ зээл авна');
+      return;
+    }
+
+    // 3. Баталгаажуулалтын төлбөр төлөх
+    Alert.alert(
+      'Зээлийн баталгаажуулалт',
+      '3,000₮ төлж зээлийн мэдээллээ шалгуулах уу?\n\nХэрэв зээл зөвшөөрөгдвөл та өөрийн сонгосон дүнгээр зээлээ авна.',
+      [
+        { text: 'Үгүй', style: 'cancel' },
+        {
+          text: 'Тийм',
+          onPress: async () => {
+            try {
+              const verifyRes = await api.verifyLoan();
+              if (verifyRes.success) {
+                Alert.alert(
+                  'Амжилттай',
+                  'Таны зээлийн мэдээллийг шалгаж байна. Админ зөвшөөрсний дараа мэдэгдэнэ.'
+                );
+                loadData();
+              }
+            } catch (error) {
+              Alert.alert('Алдаа', error.message);
+            }
+          }
+        }
+      ]
+    );
+  } catch (error) {
+    Alert.alert('Алдаа', error.message);
+  }
+};
   return (
     <Card style={styles.loanLimitCard}>
       <View style={styles.loanLimitHeader}>
