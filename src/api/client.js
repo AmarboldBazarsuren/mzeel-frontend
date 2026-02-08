@@ -60,6 +60,8 @@ export const api = {
   // Loans
   verifyLoan: () => client.post('/loans/verify'),
   requestLoan: (amount) => client.post('/loans/request', { amount }),
+    requestApprovedLoan: (amount) => client.post('/loans/request-approved', { amount }), 
+
   getMyLoans: (page = 1, status) => {
     let url = `/loans/my-loans?page=${page}`;
     if (status) url += `&status=${status}`;

@@ -54,39 +54,39 @@ export default function HomeScreen({ navigation }) {
 
 // src/screens/home/HomeScreen.js
 
+// ✅ ШИНЭЧИЛСЭН: Loan Limit Card (Зээл авах + Зээл төлөх товчтой)
 const LoanLimitCard = () => {
   const [profile, setProfile] = useState(null);
+  const [activeLoans, setActiveLoans] = useState([]);
 
   useEffect(() => {
-    loadProfile();
+    loadLoanData();
   }, []);
 
-  const loadProfile = async () => {
-    const res = await api.getProfile();
-    if (res.success) setProfile(res.data.profile);
-  };
-// mzeel-app/src/screens/home/HomeScreen.js - Зээл авах хэсэг
+  const loadLoanData = async () => {
+    try {
+      const profileRes = await api.getProfile();
+      if (profileRes.success) setProfile(profileRes.data.profile);
 
-const handleRequestLoan = async () => {
-  try {
-    // 1. Profile шалгах
-    const profileRes = await api.getProfile();
-    if (!profileRes.success || !profileRes.data.profile) {
-      Alert.alert(
-        'Хувийн мэдээлэл шаардлагатай',
-        'Эхлээд хувийн мэдээллээ бөглөнө үү',
-        [{ text: 'За', onPress: () => navigation.navigate('ProfileForm') }]
-      );
-      return;
+      const loansRes = await api.getMyLoans(1);
+      if (loansRes.success) {
+        // Идэвхтэй зээлүүд
+        const active = loansRes.data.loans.filter(loan =>
+          ['disbursed', 'active', 'overdue'].includes(loan.status)
+        );
+        setActiveLoans(active);
+      }
+    } catch (error) {
+      console.error('Loan data load error:', error);
     }
+  };
 
-    const profile = profileRes.data.profile;
-
-    if (!profile.isVerified) {
-      Alert.alert(
-        'Баталгаажуулалт хүлээгдэж байна',
-        'Таны хувийн мэдээллийг админ баталгаажуулж байна. Түр хүлээнэ үү.'
-      );
+  // ✅ Зээл авах function
+  const handleRequestLoan = async () => {
+    if (!profile || !profile.isVerified) {
+      Alert.alert('Хувийн мэдээлэл шаардлагатай', 'Эхлээд хувийн мэдээллээ бөглөнө үү', [
+        { text: 'За', onPress: () => navigation.navigate('ProfileForm') }
+      ]);
       return;
     }
 
@@ -95,46 +95,61 @@ const handleRequestLoan = async () => {
       return;
     }
 
-    // 2. Идэвхтэй зээл байгаа эсэхийг шалгах
-    const loansRes = await api.getMyLoans(1);
-    const activeLoans = loansRes.data.loans.filter(loan => 
-      ['pending_verification', 'under_review', 'approved', 'disbursed', 'active', 'overdue'].includes(loan.status)
-    );
-
     if (activeLoans.length > 0) {
-      Alert.alert('Идэвхтэй зээл байна', 'Та өмнөх зээлээ төлсний дараа шинэ зээл авна');
+      Alert.alert('Идэвхтэй зээл байна', 'Эхлээд өмнөх зээлээ төлнө үү');
       return;
     }
 
-    // 3. Баталгаажуулалтын төлбөр төлөх
-    Alert.alert(
-      'Зээлийн баталгаажуулалт',
-      '3,000₮ төлж зээлийн мэдээллээ шалгуулах уу?\n\nХэрэв зээл зөвшөөрөгдвөл та өөрийн сонгосон дүнгээр зээлээ авна.',
+    // Дүн оруулуулах
+    Alert.prompt(
+      'Зээл авах',
+      `Дээд хэмжээ: ${formatCurrency(profile.availableLoanLimit)}\n\nХэдэн төгрөг авах вэ?`,
       [
-        { text: 'Үгүй', style: 'cancel' },
+        { text: 'Болих', style: 'cancel' },
         {
-          text: 'Тийм',
-          onPress: async () => {
+          text: 'Илгээх',
+          onPress: async (amount) => {
+            const loanAmount = parseInt(amount);
+            if (!loanAmount || loanAmount < 10000) {
+              Alert.alert('Алдаа', 'Хамгийн багадаа 10,000₮');
+              return;
+            }
+            if (loanAmount > profile.availableLoanLimit) {
+              Alert.alert('Алдаа', `Дээд хэмжээ: ${formatCurrency(profile.availableLoanLimit)}`);
+              return;
+            }
+
             try {
-              const verifyRes = await api.verifyLoan();
-              if (verifyRes.success) {
-                Alert.alert(
-                  'Амжилттай',
-                  'Таны зээлийн мэдээллийг шалгаж байна. Админ зөвшөөрсний дараа мэдэгдэнэ.'
-                );
-                loadData();
+              const res = await api.requestApprovedLoan(loanAmount);
+              if (res.success) {
+                Alert.alert('Амжилттай', 'Хүсэлт илгээгдлээ. Админ зөвшөөрнө.', [
+                  { text: 'За', onPress: () => { loadData(); loadLoanData(); } }
+                ]);
               }
             } catch (error) {
               Alert.alert('Алдаа', error.message);
             }
           }
         }
-      ]
+      ],
+      'plain-text',
+      '',
+      'number-pad'
     );
-  } catch (error) {
-    Alert.alert('Алдаа', error.message);
-  }
-};
+  };
+
+  // ✅ Зээл төлөх function
+  const handlePayLoan = () => {
+    if (activeLoans.length === 0) {
+      Alert.alert('Зээл байхгүй', 'Та төлөх зээлгүй байна');
+      return;
+    }
+
+    // Хамгийн сүүлийн зээл
+    const loan = activeLoans[0];
+    navigation.navigate('LoanDetail', { loanId: loan._id });
+  };
+
   return (
     <Card style={styles.loanLimitCard}>
       <View style={styles.loanLimitHeader}>
@@ -146,10 +161,43 @@ const handleRequestLoan = async () => {
         </View>
         <Ionicons name="card-outline" size={32} color={colors.primary} />
       </View>
+
       <Text style={styles.loanLimitAmount}>
         {formatCurrency(profile?.availableLoanLimit || 0)}
       </Text>
-      {/* ... */}
+
+      {/* ✅ ШИНЭ: 2 товч */}
+      <View style={styles.loanButtonsRow}>
+        {/* Зээл авах товч */}
+        <TouchableOpacity
+          style={[styles.loanActionButton, styles.loanActionButtonPrimary]}
+          onPress={handleRequestLoan}
+          disabled={!profile || profile.availableLoanLimit <= 0 || activeLoans.length > 0}
+        >
+          <Ionicons name="cash-outline" size={20} color={colors.white} />
+          <Text style={styles.loanActionButtonText}>Зээл авах</Text>
+        </TouchableOpacity>
+
+        {/* Зээл төлөх товч */}
+        <TouchableOpacity
+          style={[styles.loanActionButton, styles.loanActionButtonSecondary]}
+          onPress={handlePayLoan}
+          disabled={activeLoans.length === 0}
+        >
+          <Ionicons name="card-outline" size={20} color={colors.white} />
+          <Text style={styles.loanActionButtonText}>Зээл төлөх</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* ✅ Идэвхтэй зээлийн мэдээлэл */}
+      {activeLoans.length > 0 && (
+        <View style={styles.activeLoanInfo}>
+          <Text style={styles.activeLoanLabel}>Идэвхтэй зээл:</Text>
+          <Text style={styles.activeLoanAmount}>
+            {formatCurrency(activeLoans[0].remainingAmount)} үлдэгдэл
+          </Text>
+        </View>
+      )}
     </Card>
   );
 };
@@ -461,4 +509,46 @@ const styles = StyleSheet.create({
   negative: {
     color: colors.white,
   },
+  // HomeScreen.js styles-д нэмнэ
+loanButtonsRow: {
+  flexDirection: 'row',
+  gap: 12,
+  marginTop: 12,
+},
+loanActionButton: {
+  flex: 1,
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  paddingVertical: 12,
+  borderRadius: 8,
+  gap: 6,
+},
+loanActionButtonPrimary: {
+  backgroundColor: colors.primary,
+},
+loanActionButtonSecondary: {
+  backgroundColor: colors.secondary,
+},
+loanActionButtonText: {
+  color: colors.white,
+  fontSize: 14,
+  fontWeight: '600',
+},
+activeLoanInfo: {
+  marginTop: 16,
+  paddingTop: 16,
+  borderTopWidth: 1,
+  borderTopColor: colors.primary + '30',
+},
+activeLoanLabel: {
+  color: colors.lightGray,
+  fontSize: 12,
+  marginBottom: 4,
+},
+activeLoanAmount: {
+  color: colors.primary,
+  fontSize: 16,
+  fontWeight: '700',
+},
 });
