@@ -190,7 +190,7 @@ export default function WalletScreen({ navigation }) {
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>Нийт зарцуулалт</Text>
-              <Text style={styles.statValue}>{formatCurrency(wallet?.totalWithdrawal || 0)}</Text>
+              <Text style={styles.statValue}>{formatCurrency(wallet?.totalSpent || 0)}</Text>
             </View>
           </View>
         </Card>

@@ -52,26 +52,38 @@ export default function HomeScreen({ navigation }) {
     setRefreshing(false);
   }, []);
 
-  // ✅ ШИНЭ: Цахим зээл - Дээд эрхCard
-  const LoanLimitCard = () => (
+// src/screens/home/HomeScreen.js
+
+const LoanLimitCard = () => {
+  const [profile, setProfile] = useState(null);
+
+  useEffect(() => {
+    loadProfile();
+  }, []);
+
+  const loadProfile = async () => {
+    const res = await api.getProfile();
+    if (res.success) setProfile(res.data.profile);
+  };
+
+  return (
     <Card style={styles.loanLimitCard}>
       <View style={styles.loanLimitHeader}>
         <View>
           <Text style={styles.loanLimitLabel}>ЦАХИМ ЗЭЭЛ - ДЭЭД ЭРХ</Text>
-          <Text style={styles.loanLimitSubtitle}>Таны авч болох зээлийн дээд хэмжээ</Text>
+          <Text style={styles.loanLimitSubtitle}>
+            Таны авч болох зээлийн үлдэгдэл
+          </Text>
         </View>
         <Ionicons name="card-outline" size={32} color={colors.primary} />
       </View>
-      <Text style={styles.loanLimitAmount}>500,000₮</Text>
-      <TouchableOpacity 
-        style={styles.applyLoanButton}
-        onPress={() => navigation.navigate('Loans')}
-      >
-        <Text style={styles.applyLoanButtonText}>Зээл авах</Text>
-        <Ionicons name="arrow-forward" size={16} color={colors.white} />
-      </TouchableOpacity>
+      <Text style={styles.loanLimitAmount}>
+        {formatCurrency(profile?.availableLoanLimit || 0)}
+      </Text>
+      {/* ... */}
     </Card>
   );
+};
 
   // ✅ ШИНЭ: Хэтэвчийн үлдэгдэл (тэмдэггүй, зөвхөн мэдээлэл)
   const WalletBalance = () => (

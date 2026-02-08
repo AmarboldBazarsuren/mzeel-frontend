@@ -13,6 +13,8 @@ import LoanListScreen from '../screens/loans/LoanListScreen';
 import LoanDetailScreen from '../screens/loans/LoanDetailScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import SettingsScreen from '../screens/settings/SettingsScreen';
+import ProfileFormScreen from '../screens/profile/ProfileFormScreen';
+
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -25,6 +27,8 @@ function HomeStack() {
       <Stack.Screen name="LoanDetail" component={LoanDetailScreen} />
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
+            <Stack.Screen name="ProfileForm" component={ProfileFormScreen} />
+
     </Stack.Navigator>
   );
 }

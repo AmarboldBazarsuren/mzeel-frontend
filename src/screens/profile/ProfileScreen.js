@@ -36,35 +36,17 @@ export default function ProfileScreen({ navigation }) {
         setProfile(response.data.profile);
       }
     } catch (error) {
-      // Profile байхгүй бол шинээр үүсгэх хэрэгтэй
-      console.log('Profile олдсонгүй');
+      // Profile байхгүй бол null хэвээр үлдээх
+      console.log('Profile олдсонгүй:', error.message);
+      setProfile(null);
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ ProfileForm үүсгэх function
+  // ✅ ProfileForm руу шилжүүлэх function
   const handleCreateProfile = () => {
-    Alert.alert(
-      'Хувийн мэдээлэл',
-      'Хувийн мэдээллээ бөглөх гэж байна. Та итгэлтэй байна уу?',
-      [
-        { text: 'Үгүй', style: 'cancel' },
-        {
-          text: 'Тийм',
-          onPress: () => {
-            // TODO: ProfileFormScreen үүсгэх хэрэгтэй
-            Alert.alert(
-              'Удахгүй',
-              'Profile бөглөх screen-г удахгүй нэмнэ. Одоогоор API ашиглан шууд бөглөж болно.',
-              [
-                { text: 'За' }
-              ]
-            );
-          }
-        }
-      ]
-    );
+    navigation.navigate('ProfileForm');
   };
 
   if (loading) {
@@ -186,6 +168,9 @@ export default function ProfileScreen({ navigation }) {
           <View style={styles.noProfile}>
             <Ionicons name="document-text-outline" size={64} color={colors.gray} />
             <Text style={styles.noProfileText}>Хувийн мэдээлэл бөглөөгүй байна</Text>
+            <Text style={styles.noProfileHint}>
+              Зээл авахын тулд хувийн мэдээллээ бөглөх шаардлагатай
+            </Text>
             <Button
               title="Мэдээлэл бөглөх"
               onPress={handleCreateProfile}
@@ -297,12 +282,21 @@ const styles = StyleSheet.create({
   noProfile: {
     alignItems: 'center',
     paddingVertical: 60,
+    paddingHorizontal: 40,
   },
   noProfileText: {
-    color: colors.lightGray,
-    fontSize: 16,
+    color: colors.white,
+    fontSize: 18,
+    fontWeight: '600',
     marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  noProfileHint: {
+    color: colors.lightGray,
+    fontSize: 14,
     marginBottom: 24,
+    textAlign: 'center',
   },
   fillButton: {
     paddingHorizontal: 40,
