@@ -14,6 +14,8 @@ export default function Input({
   keyboardType = 'default',
   error,
   icon,
+  autoFocus = false,
+  maxLength,
   ...props
 }) {
   const [showPassword, setShowPassword] = useState(false);
@@ -35,6 +37,8 @@ export default function Input({
           onChangeText={onChangeText}
           secureTextEntry={secureTextEntry && !showPassword}
           keyboardType={keyboardType}
+          autoFocus={autoFocus}
+          maxLength={maxLength}
           {...props}
         />
         
@@ -62,6 +66,7 @@ const styles = StyleSheet.create({
     color: colors.lightGray,
     fontSize: 14,
     marginBottom: 8,
+    fontWeight: '500',
   },
   inputContainer: {
     flexDirection: 'row',

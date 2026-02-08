@@ -43,6 +43,30 @@ export default function ProfileScreen({ navigation }) {
     }
   };
 
+  // ✅ ProfileForm үүсгэх function
+  const handleCreateProfile = () => {
+    Alert.alert(
+      'Хувийн мэдээлэл',
+      'Хувийн мэдээллээ бөглөх гэж байна. Та итгэлтэй байна уу?',
+      [
+        { text: 'Үгүй', style: 'cancel' },
+        {
+          text: 'Тийм',
+          onPress: () => {
+            // TODO: ProfileFormScreen үүсгэх хэрэгтэй
+            Alert.alert(
+              'Удахгүй',
+              'Profile бөглөх screen-г удахгүй нэмнэ. Одоогоор API ашиглан шууд бөглөж болно.',
+              [
+                { text: 'За' }
+              ]
+            );
+          }
+        }
+      ]
+    );
+  };
+
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -164,7 +188,7 @@ export default function ProfileScreen({ navigation }) {
             <Text style={styles.noProfileText}>Хувийн мэдээлэл бөглөөгүй байна</Text>
             <Button
               title="Мэдээлэл бөглөх"
-              onPress={() => navigation.navigate('ProfileForm')}
+              onPress={handleCreateProfile}
               style={styles.fillButton}
             />
           </View>

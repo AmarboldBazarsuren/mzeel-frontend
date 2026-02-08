@@ -1,8 +1,19 @@
 // mzeel-app/src/config/constants.js
 
 // Backend API хаяг (Таны компьютерын IP хаягийг оруулна)
-// Жишээ: http://192.168.1.100:5000/api (WiFi-аас олох)
-export const API_URL = 'http://172.20.10.2/api';
+// АНХААР: Port заавал оруулах! :5000
+// WiFi IP хаяг олох: 
+// - Mac/Linux: ifconfig | grep "inet " 
+// - Windows: ipconfig
+// - Эсвэл утсаараа Wi-Fi Settings -> Connected network -> IP address харах
+
+export const API_URL = 'http://172.20.10.2:5000/api';  // ✅ PORT нэмсэн!
+
+// Хэрэв локал компьютер дээрээ туршиж байгаа бол:
+// export const API_URL = 'http://localhost:5000/api';
+
+// Хэрэв Android Emulator ашиглаж байгаа бол:
+// export const API_URL = 'http://10.0.2.2:5000/api';
 
 // App тохиргоо
 export const APP_NAME = 'Mcredit';

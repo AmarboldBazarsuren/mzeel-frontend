@@ -22,10 +22,18 @@ function HomeStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="HomeMain" component={HomeScreen} />
-      <Stack.Screen name="Wallet" component={WalletScreen} />
       <Stack.Screen name="LoanDetail" component={LoanDetailScreen} />
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
+    </Stack.Navigator>
+  );
+}
+
+// Wallet Stack - ✅ ШИНЭ
+function WalletStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="WalletMain" component={WalletScreen} />
     </Stack.Navigator>
   );
 }
@@ -40,16 +48,6 @@ function LoansStack() {
   );
 }
 
-// Settings Stack
-function SettingsStack() {
-  return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="SettingsMain" component={SettingsScreen} />
-      <Stack.Screen name="Profile" component={ProfileScreen} />
-    </Stack.Navigator>
-  );
-}
-
 export default function MainNavigator() {
   return (
     <Tab.Navigator
@@ -60,10 +58,11 @@ export default function MainNavigator() {
 
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
+          } else if (route.name === 'Wallet') {
+            // ✅ Settings → Wallet болгох
+            iconName = focused ? 'wallet' : 'wallet-outline';
           } else if (route.name === 'Loans') {
             iconName = focused ? 'card' : 'card-outline';
-          } else if (route.name === 'Settings') {
-            iconName = focused ? 'settings' : 'settings-outline';
           }
 
           return <Ionicons name={iconName} size={size} color={color} />;
@@ -91,18 +90,21 @@ export default function MainNavigator() {
           tabBarLabel: 'Нүүр',
         }}
       />
+      
+      {/* ✅ Settings → Wallet болгох */}
+      <Tab.Screen
+        name="Wallet"
+        component={WalletStack}
+        options={{
+          tabBarLabel: 'Хэтэвч',
+        }}
+      />
+      
       <Tab.Screen
         name="Loans"
         component={LoansStack}
         options={{
           tabBarLabel: 'Зээл',
-        }}
-      />
-      <Tab.Screen
-        name="Settings"
-        component={SettingsStack}
-        options={{
-          tabBarLabel: 'Тохиргоо',
         }}
       />
     </Tab.Navigator>

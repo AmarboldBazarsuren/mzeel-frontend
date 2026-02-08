@@ -52,36 +52,34 @@ export default function HomeScreen({ navigation }) {
     setRefreshing(false);
   }, []);
 
-  // Цахим зээл (banner)
-  const CreditBanner = () => (
-    <Card style={styles.banner}>
-      <Image
-        source={{ uri: 'https://via.placeholder.com/400x200/1E3A5F/FFFFFF?text=MCredit' }}
-        style={styles.bannerImage}
-        resizeMode="cover"
-      />
-      <View style={styles.bannerOverlay}>
-        <Text style={styles.bannerTitle}>ЦАХИМ ЗЭЭЛ</Text>
-        <Text style={styles.bannerAmount}>500,000-1,000,000₮</Text>
-        <Text style={styles.bannerSubtitle}>КАРТЫН ХУГАЦАА</Text>
-        <Text style={styles.bannerMonths}>⏱ 3 ЖИЛ</Text>
+  // ✅ ШИНЭ: Цахим зээл - Дээд эрхCard
+  const LoanLimitCard = () => (
+    <Card style={styles.loanLimitCard}>
+      <View style={styles.loanLimitHeader}>
+        <View>
+          <Text style={styles.loanLimitLabel}>ЦАХИМ ЗЭЭЛ - ДЭЭД ЭРХ</Text>
+          <Text style={styles.loanLimitSubtitle}>Таны авч болох зээлийн дээд хэмжээ</Text>
+        </View>
+        <Ionicons name="card-outline" size={32} color={colors.primary} />
       </View>
+      <Text style={styles.loanLimitAmount}>500,000₮</Text>
       <TouchableOpacity 
-        style={styles.applyButton}
+        style={styles.applyLoanButton}
         onPress={() => navigation.navigate('Loans')}
       >
-        <Text style={styles.applyButtonText}>Хүсэлт илгээх ›</Text>
+        <Text style={styles.applyLoanButtonText}>Зээл авах</Text>
+        <Ionicons name="arrow-forward" size={16} color={colors.white} />
       </TouchableOpacity>
     </Card>
   );
 
-  // Хэтэвчийн үлдэгдэл
+  // ✅ ШИНЭ: Хэтэвчийн үлдэгдэл (тэмдэггүй, зөвхөн мэдээлэл)
   const WalletBalance = () => (
     <Card style={styles.walletCard}>
       <View style={styles.walletHeader}>
-        <Text style={styles.walletLabel}>Дээд эрх</Text>
+        <Text style={styles.walletLabel}>Хэтэвчийн үлдэгдэл</Text>
         <TouchableOpacity onPress={() => navigation.navigate('Wallet')}>
-          <Ionicons name="add-circle" size={32} color={colors.primary} />
+          <Ionicons name="open-outline" size={20} color={colors.primary} />
         </TouchableOpacity>
       </View>
       <Text style={styles.walletBalance}>
@@ -95,25 +93,50 @@ export default function HomeScreen({ navigation }) {
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Сүүлийн 5 гүйлгээ</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Transactions')}>
+        <TouchableOpacity onPress={() => navigation.navigate('Wallet')}>
           <Text style={styles.seeAll}>Бүгд ›</Text>
         </TouchableOpacity>
       </View>
 
       {transactions.length === 0 ? (
-        <Text style={styles.emptyText}>Гүйлгээ байхгүй байна</Text>
+        <Card style={styles.emptyCard}>
+          <Ionicons name="receipt-outline" size={48} color={colors.gray} />
+          <Text style={styles.emptyText}>Гүйлгээ байхгүй байна</Text>
+        </Card>
       ) : (
         transactions.map((transaction) => (
           <Card key={transaction._id} style={styles.transactionCard}>
             <View style={styles.transactionRow}>
-              <View style={styles.transactionIcon}>
-                <Ionicons name="logo-electron" size={24} color={colors.primary} />
+              <View
+                style={[
+                  styles.transactionIcon,
+                  {
+                    backgroundColor:
+                      transaction.type === 'deposit' || transaction.type === 'loan_disbursement'
+                        ? colors.green + '20'
+                        : colors.primary + '20',
+                  },
+                ]}
+              >
+                <Ionicons
+                  name={
+                    transaction.type === 'deposit' || transaction.type === 'loan_disbursement'
+                      ? 'arrow-down'
+                      : 'arrow-up'
+                  }
+                  size={20}
+                  color={
+                    transaction.type === 'deposit' || transaction.type === 'loan_disbursement'
+                      ? colors.green
+                      : colors.primary
+                  }
+                />
               </View>
               <View style={styles.transactionInfo}>
+                <Text style={styles.transactionDesc}>{transaction.description}</Text>
                 <Text style={styles.transactionDate}>
                   {formatDate(transaction.createdAt)}
                 </Text>
-                <Text style={styles.transactionDesc}>{transaction.description}</Text>
               </View>
               <Text
                 style={[
@@ -139,7 +162,7 @@ export default function HomeScreen({ navigation }) {
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.openDrawer()}>
+        <TouchableOpacity onPress={() => navigation.navigate('Settings')}>
           <View style={styles.profilePic}>
             <Ionicons name="person" size={24} color={colors.white} />
           </View>
@@ -152,7 +175,7 @@ export default function HomeScreen({ navigation }) {
           <Text style={styles.headerTitle}>credit</Text>
         </View>
 
-        <TouchableOpacity>
+        <TouchableOpacity onPress={() => Alert.alert('Мэдэгдэл', 'Мэдэгдэл байхгүй')}>
           <Ionicons name="notifications" size={24} color={colors.white} />
         </TouchableOpacity>
       </View>
@@ -164,7 +187,8 @@ export default function HomeScreen({ navigation }) {
         }
       >
         <View style={styles.content}>
-          <CreditBanner />
+          {/* ✅ ШИНЭ ДАРААЛАЛ */}
+          <LoanLimitCard />
           <WalletBalance />
           <RecentTransactions />
         </View>
@@ -220,73 +244,75 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
   },
-  banner: {
-    padding: 0,
-    height: 220,
+  
+  // ✅ ШИНЭ: Loan Limit Card
+  loanLimitCard: {
     marginBottom: 16,
-    overflow: 'hidden',
-  },
-  bannerImage: {
-    width: '100%',
-    height: '100%',
-    position: 'absolute',
-  },
-  bannerOverlay: {
     padding: 20,
+    backgroundColor: colors.primary + '15',
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
   },
-  bannerTitle: {
-    color: colors.white,
-    fontSize: 12,
+  loanLimitHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  loanLimitLabel: {
+    color: colors.primary,
+    fontSize: 11,
     fontWeight: 'bold',
-    marginBottom: 8,
+    letterSpacing: 0.5,
   },
-  bannerAmount: {
+  loanLimitSubtitle: {
+    color: colors.lightGray,
+    fontSize: 12,
+    marginTop: 4,
+  },
+  loanLimitAmount: {
     color: colors.white,
-    fontSize: 20,
+    fontSize: 36,
     fontWeight: 'bold',
     marginBottom: 16,
   },
-  bannerSubtitle: {
-    color: colors.white,
-    fontSize: 10,
-    marginBottom: 4,
+  applyLoanButton: {
+    backgroundColor: colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 8,
   },
-  bannerMonths: {
+  applyLoanButtonText: {
     color: colors.white,
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
   },
-  applyButton: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
-    backgroundColor: 'rgba(229, 57, 53, 0.9)',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-  },
-  applyButtonText: {
-    color: colors.white,
-    fontWeight: '600',
-  },
+  
+  // ✅ ШИНЭЧИЛСЭН: Wallet Card (+ тэмдэггүй)
   walletCard: {
     marginBottom: 24,
+    padding: 20,
   },
   walletHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   walletLabel: {
     color: colors.lightGray,
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: '500',
   },
   walletBalance: {
     color: colors.white,
     fontSize: 32,
     fontWeight: 'bold',
   },
+  
   section: {
     marginBottom: 24,
   },
@@ -305,10 +331,15 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 14,
   },
+  emptyCard: {
+    padding: 40,
+    alignItems: 'center',
+  },
   emptyText: {
     color: colors.gray,
     textAlign: 'center',
-    paddingVertical: 20,
+    marginTop: 12,
+    fontSize: 14,
   },
   transactionCard: {
     marginBottom: 8,
@@ -322,7 +353,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.darkGray,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -330,14 +360,15 @@ const styles = StyleSheet.create({
   transactionInfo: {
     flex: 1,
   },
-  transactionDate: {
-    color: colors.lightGray,
-    fontSize: 12,
-    marginBottom: 2,
-  },
   transactionDesc: {
     color: colors.white,
     fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  transactionDate: {
+    color: colors.lightGray,
+    fontSize: 12,
   },
   transactionAmount: {
     fontSize: 16,

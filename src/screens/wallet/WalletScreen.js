@@ -10,6 +10,8 @@ import {
   Alert,
   Modal,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,9 +26,21 @@ export default function WalletScreen({ navigation }) {
   const [wallet, setWallet] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // Deposit modal
   const [depositModal, setDepositModal] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
   const [depositLoading, setDepositLoading] = useState(false);
+  
+  // ✅ Withdrawal modal
+  const [withdrawalModal, setWithdrawalModal] = useState(false);
+  const [withdrawalData, setWithdrawalData] = useState({
+    amount: '',
+    bankName: '',
+    accountNumber: '',
+    accountName: '',
+  });
+  const [withdrawalLoading, setWithdrawalLoading] = useState(false);
 
   useEffect(() => {
     loadWallet();
@@ -89,6 +103,58 @@ export default function WalletScreen({ navigation }) {
     }
   };
 
+  // ✅ Мөнгө татах function
+  const handleWithdrawal = async () => {
+    const amount = parseInt(withdrawalData.amount);
+
+    // Validation
+    if (!amount || amount < 1000) {
+      Alert.alert('Алдаа', 'Хамгийн багадаа 1,000₮ татах боломжтой');
+      return;
+    }
+
+    if (amount > wallet.balance) {
+      Alert.alert('Алдаа', `Хэтэвчний үлдэгдэл хүрэлцэхгүй байна. Үлдэгдэл: ${formatCurrency(wallet.balance)}`);
+      return;
+    }
+
+    if (!withdrawalData.bankName || !withdrawalData.accountNumber || !withdrawalData.accountName) {
+      Alert.alert('Алдаа', 'Бүх талбарыг бөглөнө үү');
+      return;
+    }
+
+    try {
+      setWithdrawalLoading(true);
+      const response = await api.createWithdrawal(withdrawalData);
+
+      if (response.success) {
+        Alert.alert(
+          'Амжилттай',
+          'Таны хүсэлтийг хүлээн авлаа. Удахгүй боловсруулагдана.',
+          [
+            {
+              text: 'За',
+              onPress: () => {
+                setWithdrawalModal(false);
+                setWithdrawalData({
+                  amount: '',
+                  bankName: '',
+                  accountNumber: '',
+                  accountName: '',
+                });
+                loadWallet();
+              },
+            },
+          ]
+        );
+      }
+    } catch (error) {
+      Alert.alert('Алдаа', error.message || 'Хүсэлт илгээхэд алдаа гарлаа');
+    } finally {
+      setWithdrawalLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -141,9 +207,10 @@ export default function WalletScreen({ navigation }) {
             <Text style={styles.actionText}>Цэнэглэх</Text>
           </TouchableOpacity>
 
+          {/* ✅ Татах button */}
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => navigation.navigate('Withdrawals')}
+            onPress={() => setWithdrawalModal(true)}
           >
             <View style={styles.actionIcon}>
               <Ionicons name="arrow-down" size={24} color={colors.white} />
@@ -232,14 +299,17 @@ export default function WalletScreen({ navigation }) {
         </View>
       </ScrollView>
 
-      {/* Deposit Modal */}
+      {/* ✅ Deposit Modal - KeyboardAvoidingView нэмэх */}
       <Modal
         visible={depositModal}
         transparent
         animationType="slide"
         onRequestClose={() => setDepositModal(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Хэтэвч цэнэглэх</Text>
@@ -248,16 +318,22 @@ export default function WalletScreen({ navigation }) {
               </TouchableOpacity>
             </View>
 
+            <View style={styles.modalInfo}>
+              <Text style={styles.infoText}>
+                💳 QPay ашиглан цэнэглэх дүнгээ оруулна уу
+              </Text>
+            </View>
+
             <Input
               label="Дүн (₮)"
-              placeholder="Дүнгээ оруулна уу"
+              placeholder="50000"
               value={depositAmount}
               onChangeText={setDepositAmount}
               keyboardType="number-pad"
             />
 
             <Text style={styles.modalNote}>
-              * QPay ашиглан төлбөр төлнө. Хамгийн багадаа 1,000₮
+              ℹ️ Хамгийн багадаа 1,000₮ цэнэглэх боломжтой
             </Text>
 
             <Button
@@ -266,7 +342,80 @@ export default function WalletScreen({ navigation }) {
               loading={depositLoading}
             />
           </View>
-        </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ✅ ШИНЭ: Withdrawal Modal */}
+      <Modal
+        visible={withdrawalModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setWithdrawalModal(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <ScrollView
+            contentContainerStyle={styles.modalScrollContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Мөнгө татах</Text>
+                <TouchableOpacity onPress={() => setWithdrawalModal(false)}>
+                  <Ionicons name="close" size={24} color={colors.white} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.modalInfo}>
+                <Text style={styles.infoText}>
+                  💰 Үлдэгдэл: {formatCurrency(wallet?.balance || 0)}
+                </Text>
+              </View>
+
+              <Input
+                label="Татах дүн (₮)"
+                placeholder="50000"
+                value={withdrawalData.amount}
+                onChangeText={(text) => setWithdrawalData({ ...withdrawalData, amount: text })}
+                keyboardType="number-pad"
+              />
+
+              <Input
+                label="Банкны нэр"
+                placeholder="Жишээ: Хаан банк"
+                value={withdrawalData.bankName}
+                onChangeText={(text) => setWithdrawalData({ ...withdrawalData, bankName: text })}
+              />
+
+              <Input
+                label="Дансны дугаар"
+                placeholder="1234567890"
+                value={withdrawalData.accountNumber}
+                onChangeText={(text) => setWithdrawalData({ ...withdrawalData, accountNumber: text })}
+                keyboardType="number-pad"
+              />
+
+              <Input
+                label="Дансны эзэмшигч"
+                placeholder="Овог Нэр"
+                value={withdrawalData.accountName}
+                onChangeText={(text) => setWithdrawalData({ ...withdrawalData, accountName: text })}
+              />
+
+              <Text style={styles.modalNote}>
+                ℹ️ Таны хүсэлтийг 1-2 хоногт боловсруулна
+              </Text>
+
+              <Button
+                title="Хүсэлт илгээх"
+                onPress={handleWithdrawal}
+                loading={withdrawalLoading}
+              />
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -417,6 +566,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'flex-end',
   },
+  modalScrollContent: {
+    flexGrow: 1,
+    justifyContent: 'flex-end',
+  },
   modalContent: {
     backgroundColor: colors.cardBg,
     borderTopLeftRadius: 24,
@@ -428,16 +581,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
   },
   modalTitle: {
     color: colors.white,
     fontSize: 20,
     fontWeight: '600',
   },
+  modalInfo: {
+    backgroundColor: colors.darkGray,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  infoText: {
+    color: colors.lightGray,
+    fontSize: 13,
+    lineHeight: 18,
+  },
   modalNote: {
     color: colors.lightGray,
     fontSize: 12,
     marginBottom: 16,
+    marginTop: -8,
   },
 });
