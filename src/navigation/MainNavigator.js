@@ -15,7 +15,8 @@ import ProfileScreen from '../screens/profile/ProfileScreen';
 import SettingsScreen from '../screens/settings/SettingsScreen';
 import ProfileFormScreen from '../screens/profile/ProfileFormScreen';
 import RequestLoanScreen from '../screens/loans/RequestLoanScreen';
-
+import ActiveLoansScreen from '../screens/loans/ActiveLoansScreen'; // ✅ ШИНЭ
+import PayLoanScreen from '../screens/loans/PayLoanScreen'; // ✅ ШИНЭ
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -26,17 +27,17 @@ function HomeStack() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="HomeMain" component={HomeScreen} />
       <Stack.Screen name="LoanDetail" component={LoanDetailScreen} />
-            <Stack.Screen name="RequestLoan" component={RequestLoanScreen} />
-
+      <Stack.Screen name="RequestLoan" component={RequestLoanScreen} />
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
-            <Stack.Screen name="ProfileForm" component={ProfileFormScreen} />
-
+      <Stack.Screen name="ProfileForm" component={ProfileFormScreen} />
+      <Stack.Screen name="ActiveLoans" component={ActiveLoansScreen} /> {/* ✅ ШИНЭ */}
+      <Stack.Screen name="PayLoan" component={PayLoanScreen} /> {/* ✅ ШИНЭ */}
     </Stack.Navigator>
   );
 }
 
-// Wallet Stack - ✅ ШИНЭ
+// Wallet Stack
 function WalletStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -51,6 +52,8 @@ function LoansStack() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="LoanList" component={LoanListScreen} />
       <Stack.Screen name="LoanDetail" component={LoanDetailScreen} />
+      <Stack.Screen name="ActiveLoans" component={ActiveLoansScreen} /> {/* ✅ ШИНЭ */}
+      <Stack.Screen name="PayLoan" component={PayLoanScreen} /> {/* ✅ ШИНЭ */}
     </Stack.Navigator>
   );
 }
@@ -66,7 +69,6 @@ export default function MainNavigator() {
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Wallet') {
-            // ✅ Settings → Wallet болгох
             iconName = focused ? 'wallet' : 'wallet-outline';
           } else if (route.name === 'Loans') {
             iconName = focused ? 'card' : 'card-outline';
@@ -98,7 +100,6 @@ export default function MainNavigator() {
         }}
       />
       
-      {/* ✅ Settings → Wallet болгох */}
       <Tab.Screen
         name="Wallet"
         component={WalletStack}

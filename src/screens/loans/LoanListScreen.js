@@ -1,6 +1,6 @@
 // mzeel-app/src/screens/loans/LoanListScreen.js
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,14 +18,13 @@ import { formatCurrency, formatDate } from '../../utils/formatters';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
 import colors from '../../styles/colors';
-import { RefreshControl } from 'react-native';
 
 export default function LoanListScreen({ navigation }) {
   const [loans, setLoans] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [verifying, setVerifying] = useState(false);
-const [refreshing, setRefreshing] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadLoans();
@@ -35,25 +35,27 @@ const [refreshing, setRefreshing] = useState(false);
       setLoading(true);
       const response = await api.getMyLoans(1);
 
-       if (response.success) {
-      // ✅ ШИНЭ: approved зээлийг түүхэнд ХАРУУЛАХГҮЙ
-      const filteredLoans = response.data.loans.filter(loan => 
-        loan.status !== 'approved'
-      );
-      setLoans(filteredLoans); // Өмнө: setLoans(response.data.loans)
-      setStats(response.data.stats);
-    }
+      if (response.success) {
+        // ✅ ШИНЭ: approved зээлийг түүхэнд ХАРУУЛАХГҮЙ
+        const filteredLoans = response.data.loans.filter(loan => 
+          loan.status !== 'approved'
+        );
+        setLoans(filteredLoans);
+        setStats(response.data.stats);
+      }
     } catch (error) {
       Alert.alert('Алдаа', 'Зээлийн мэдээлэл татахад алдаа гарлаа');
     } finally {
       setLoading(false);
     }
   };
-const onRefresh = useCallback(async () => {
-  setRefreshing(true);
-  await loadLoans();
-  setRefreshing(false);
-}, [page]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadLoans();
+    setRefreshing(false);
+  }, []);
+
   const handleVerifyLoan = async () => {
     Alert.alert(
       'Баталгаажуулалт',
@@ -133,11 +135,11 @@ const onRefresh = useCallback(async () => {
       </View>
 
       <ScrollView
-  showsVerticalScrollIndicator={false}
-  refreshControl={
-    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.white} />
-  }
->
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.white} />
+        }
+      >
         {/* Stats Card */}
         {stats && (
           <Card style={styles.statsCard}>

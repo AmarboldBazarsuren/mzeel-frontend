@@ -76,13 +76,19 @@ export const api = {
     return client.get(url);
   },
   
-  // Зээлийн дэлгэрэнгүй
+  // ✅ ШИНЭ: Зээлийн дэлгэрэнгүй ID-аар
+  getLoanById: (id) => client.get(`/loans/${id}`),
+  
+  // Зээлийн дэлгэрэнгүй (хуучин нэр)
   getLoanDetails: (id) => client.get(`/loans/${id}`),
   
   // Зээл төлөх
   payLoan: (id, amount) => client.post(`/loans/${id}/pay`, { amount }),
   
-  // ✅ ШИНЭ: Зээл сунгах
+  // ✅ ШИНЭ: Зээл төлөх (объект параметртай)
+  makePayment: (data) => client.post(`/loans/${data.loanId}/pay`, { amount: data.amount }),
+  
+  // ✅ Зээл сунгах
   extendLoan: (loanId) => client.post(`/loans/${loanId}/extend`),
 
   // ===== PROFILE =====
