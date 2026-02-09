@@ -1,4 +1,4 @@
-// mzeel-app/src/navigation/MainNavigator.js
+// src/navigation/MainNavigator.js
 
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -15,8 +15,9 @@ import ProfileScreen from '../screens/profile/ProfileScreen';
 import SettingsScreen from '../screens/settings/SettingsScreen';
 import ProfileFormScreen from '../screens/profile/ProfileFormScreen';
 import RequestLoanScreen from '../screens/loans/RequestLoanScreen';
-import ActiveLoansScreen from '../screens/loans/ActiveLoansScreen'; // ✅ ШИНЭ
-import PayLoanScreen from '../screens/loans/PayLoanScreen'; // ✅ ШИНЭ
+import ActiveLoansScreen from '../screens/loans/ActiveLoansScreen';
+import PayLoanScreen from '../screens/loans/PayLoanScreen';
+import ExtendLoanScreen from '../screens/loans/ExtendLoanScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -31,8 +32,10 @@ function HomeStack() {
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="ProfileForm" component={ProfileFormScreen} />
-      <Stack.Screen name="ActiveLoans" component={ActiveLoansScreen} /> {/* ✅ ШИНЭ */}
-      <Stack.Screen name="PayLoan" component={PayLoanScreen} /> {/* ✅ ШИНЭ */}
+      <Stack.Screen name="ActiveLoans" component={ActiveLoansScreen} />
+      <Stack.Screen name="PayLoan" component={PayLoanScreen} />
+      <Stack.Screen name="ExtendLoan" component={ExtendLoanScreen} />
+
     </Stack.Navigator>
   );
 }
@@ -52,8 +55,8 @@ function LoansStack() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="LoanList" component={LoanListScreen} />
       <Stack.Screen name="LoanDetail" component={LoanDetailScreen} />
-      <Stack.Screen name="ActiveLoans" component={ActiveLoansScreen} /> {/* ✅ ШИНЭ */}
-      <Stack.Screen name="PayLoan" component={PayLoanScreen} /> {/* ✅ ШИНЭ */}
+      <Stack.Screen name="ActiveLoans" component={ActiveLoansScreen} />
+      <Stack.Screen name="PayLoan" component={PayLoanScreen} />
     </Stack.Navigator>
   );
 }
@@ -65,7 +68,6 @@ export default function MainNavigator() {
         headerShown: false,
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
-
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Wallet') {
@@ -73,7 +75,6 @@ export default function MainNavigator() {
           } else if (route.name === 'Loans') {
             iconName = focused ? 'card' : 'card-outline';
           }
-
           return <Ionicons name={iconName} size={size} color={color} />;
         },
         tabBarActiveTintColor: colors.primary,
@@ -92,29 +93,9 @@ export default function MainNavigator() {
         },
       })}
     >
-      <Tab.Screen
-        name="Home"
-        component={HomeStack}
-        options={{
-          tabBarLabel: 'Нүүр',
-        }}
-      />
-      
-      <Tab.Screen
-        name="Wallet"
-        component={WalletStack}
-        options={{
-          tabBarLabel: 'Хэтэвч',
-        }}
-      />
-      
-      <Tab.Screen
-        name="Loans"
-        component={LoansStack}
-        options={{
-          tabBarLabel: 'Зээл',
-        }}
-      />
+      <Tab.Screen name="Home" component={HomeStack} options={{ tabBarLabel: 'Нүүр' }} />
+      <Tab.Screen name="Wallet" component={WalletStack} options={{ tabBarLabel: 'Хэтэвч' }} />
+      <Tab.Screen name="Loans" component={LoansStack} options={{ tabBarLabel: 'Зээл' }} />
     </Tab.Navigator>
   );
 }

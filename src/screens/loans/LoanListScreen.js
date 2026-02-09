@@ -57,33 +57,43 @@ export default function LoanListScreen({ navigation }) {
   }, []);
 
   const handleVerifyLoan = async () => {
-    Alert.alert(
-      'Баталгаажуулалт',
-      'Зээлийн мэдээлэл баталгаажуулахад 3,000₮ төлөх шаардлагатай. Үргэлжлүүлэх үү?',
-      [
-        { text: 'Үгүй', style: 'cancel' },
-        {
-          text: 'Тийм',
-          onPress: async () => {
-            try {
-              setVerifying(true);
-              const response = await api.verifyLoan();
+  Alert.alert(
+    '💰 Баталгаажуулалт',
+    'Зээлийн мэдээлэл баталгаажуулахад 3,000₮ төлөх шаардлагатай.\n\nҮргэлжлүүлэх үү?',
+    [
+      { 
+        text: '❌ Үгүй', 
+        style: 'cancel' 
+      },
+      {
+        text: '✅ Тийм',
+        onPress: async () => {
+          try {
+            setVerifying(true);
+            const response = await api.verifyLoan();
 
-              if (response.success) {
-                Alert.alert('Амжилттай', response.message, [
+            if (response.success) {
+              Alert.alert(
+                '🎉 Амжилттай',
+                response.message,
+                [
                   { text: 'За', onPress: loadLoans },
-                ]);
-              }
-            } catch (error) {
-              Alert.alert('Алдаа', error.message || 'Баталгаажуулалт амжилтгүй');
-            } finally {
-              setVerifying(false);
+                ]
+              );
             }
-          },
+          } catch (error) {
+            Alert.alert(
+              '❌ Алдаа',
+              error.message || 'Баталгаажуулалт амжилтгүй'
+            );
+          } finally {
+            setVerifying(false);
+          }
         },
-      ]
-    );
-  };
+      },
+    ]
+  );
+};
 
   const getLoanStatusText = (status) => {
     const statusMap = {

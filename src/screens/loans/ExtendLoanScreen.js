@@ -1,4 +1,4 @@
-// frontend/src/screens/loans/PayLoanScreen.js
+// frontend/src/screens/loans/ExtendLoanScreen.js
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -18,7 +18,7 @@ import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
 import colors from '../../styles/colors';
 
-export default function PayLoanScreen({ navigation, route }) {
+export default function ExtendLoanScreen({ navigation, route }) {
   const { loan: initialLoan } = route.params;
   
   const [loan, setLoan] = useState(initialLoan);
@@ -48,90 +48,44 @@ export default function PayLoanScreen({ navigation, route }) {
     }
   };
 
-  // ✅ Зээл төлөх (НИЙТ ДҮН)
-  const handlePayLoan = () => {
-    if (!wallet) {
-      Alert.alert('Алдаа', 'Хэтэвчийн мэдээлэл олдсонгүй');
-      return;
-    }
-
-    if (wallet.balance < loan.remainingAmount) {
-      Alert.alert(
-        'Үлдэгдэл хүрэлцэхгүй',
-        `Таны хэтэвчний үлдэгдэл: ${formatCurrency(wallet.balance)}\n` +
-        `Төлөх дүн: ${formatCurrency(loan.remainingAmount)}\n\n` +
-        `Та эхлээд хэтэвчээ цэнэглэнэ үү.`,
-        [{ text: 'За' }]
-      );
-      return;
-    }
-
-    Alert.alert(
-      'Зээл төлөх',
-      `Үлдэгдэл бүтэн төлөх уу?\n\n` +
-      `Төлөх дүн: ${formatCurrency(loan.remainingAmount)}\n` +
-      `Таны үлдэгдэл: ${formatCurrency(wallet.balance)}\n` +
-      `Шинэ үлдэгдэл: ${formatCurrency(wallet.balance - loan.remainingAmount)}`,
-      [
-        { text: 'Болих', style: 'cancel' },
-        {
-          text: 'Төлөх',
-          style: 'default',
-          onPress: async () => {
-            try {
-              setActionLoading(true);
-              const res = await api.makePayment({
-                loanId: loan._id,
-                amount: loan.remainingAmount,
-              });
-
-              if (res.success) {
-                Alert.alert(
-                  'Амжилттай',
-                  'Зээл бүтэн төлөгдлөө!',
-                  [
-                    {
-                      text: 'За',
-                      onPress: () => navigation.navigate('Home'),
-                    },
-                  ]
-                );
-              }
-            } catch (error) {
-              Alert.alert('Алдаа', error.message);
-            } finally {
-              setActionLoading(false);
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  // ✅ Зээл сунгах
-  const handleExtendLoan = () => {
-    if (loan.termDays === 14) {
-      Alert.alert('Анхааруулга', '14 хоногийн зээлийг сунгах боломжгүй');
-      return;
-    }
-
-    if ((loan.extensionCount || 0) >= 5) {
-      Alert.alert('Анхааруулга', 'Зээл 5-аас илүү удаа сунгах боломжгүй');
-      return;
-    }
-
-    const tenPercent = Math.round(loan.totalAmount * 0.1);
-    const newRemainingAmount = loan.remainingAmount - tenPercent;
-    const extensionInterest = Math.round(newRemainingAmount * (loan.interestRate / 100));
+  // ✅ ШИНЭ ЛОГИК: 10% төлөлт тооцоолох
+  const calculateExtension = () => {
+    // Үлдэгдэл зээл дээрх 10% төлөлт
+    const tenPercent = Math.round(loan.remainingAmount * 0.1);
+    
+    // 10% төлсний дараах үлдэгдэл
+    const newRemainingAfterPayment = loan.remainingAmount - tenPercent;
+    
+    // Шинэ хүү тооцоолох (3.2% эсвэл loan.interestRate)
+    const newInterest = Math.round(newRemainingAfterPayment * (loan.interestRate / 100));
+    
+    // Нийт үлдэгдэл (10% төлсний дараа + шинэ хүү)
+    const totalRemainingAfterExtension = newRemainingAfterPayment + newInterest;
+    
+    // Сунгах хугацаа
     const extensionDays = loan.termDays || 30;
     
+    // Шинэ дуусах хугацаа
     const newDueDate = new Date(loan.dueDate);
     newDueDate.setDate(newDueDate.getDate() + extensionDays);
 
-    if (!wallet || wallet.balance < tenPercent) {
+    return {
+      tenPercent,
+      newRemainingAfterPayment,
+      newInterest,
+      totalRemainingAfterExtension,
+      extensionDays,
+      newDueDate,
+    };
+  };
+
+  const extData = calculateExtension();
+
+  const handleExtendLoan = () => {
+    if (!wallet || wallet.balance < extData.tenPercent) {
       Alert.alert(
         'Үлдэгдэл хүрэлцэхгүй',
-        `10% төлбөр: ${formatCurrency(tenPercent)}\n` +
+        `10% төлбөр: ${formatCurrency(extData.tenPercent)}\n` +
         `Таны үлдэгдэл: ${formatCurrency(wallet?.balance || 0)}\n\n` +
         `Та эхлээд хэтэвчээ цэнэглэнэ үү.`,
         [{ text: 'За' }]
@@ -141,12 +95,13 @@ export default function PayLoanScreen({ navigation, route }) {
 
     Alert.alert(
       'Зээл сунгах',
-      `Зээлийн хугацааг ${extensionDays} хоногоор сунгах уу?\n\n` +
-      `📌 Одоо төлөх: ${formatCurrency(tenPercent)} (10%)\n` +
-      `📌 Шинэ хүү: ${formatCurrency(extensionInterest)}\n` +
-      `📌 Шинэ үлдэгдэл: ${formatCurrency(newRemainingAmount + extensionInterest)}\n` +
-      `📌 Шинэ хугацаа: ${formatDate(newDueDate)}\n\n` +
-      `⚠️ Таны хэтэвчнээс ${formatCurrency(tenPercent)} шууд хасагдана.`,
+      `Зээлийн хугацааг ${extData.extensionDays} хоногоор сунгах уу?\n\n` +
+      `📌 Одоо төлөх 10%: ${formatCurrency(extData.tenPercent)}\n` +
+      `📌 10% төлсний дараах үлдэгдэл: ${formatCurrency(extData.newRemainingAfterPayment)}\n` +
+      `📌 Шинэ хүү (${loan.interestRate}%): ${formatCurrency(extData.newInterest)}\n` +
+      `📌 Нийт үлдэгдэл: ${formatCurrency(extData.totalRemainingAfterExtension)}\n` +
+      `📌 Шинэ хугацаа: ${formatDate(extData.newDueDate)}\n\n` +
+      `⚠️ Таны хэтэвчнээс ${formatCurrency(extData.tenPercent)} шууд хасагдана.`,
       [
         { text: 'Болих', style: 'cancel' },
         {
@@ -188,11 +143,6 @@ export default function PayLoanScreen({ navigation, route }) {
     );
   }
 
-  const canExtend =
-    loan.termDays !== 14 &&
-    (loan.extensionCount || 0) < 5 &&
-    ['disbursed', 'active', 'overdue'].includes(loan.status);
-
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
@@ -202,7 +152,7 @@ export default function PayLoanScreen({ navigation, route }) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={colors.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Зээл төлөх</Text>
+        <Text style={styles.headerTitle}>Зээл сунгах</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -214,41 +164,56 @@ export default function PayLoanScreen({ navigation, route }) {
             <Text style={styles.loanDate}>{formatDate(loan.createdAt)}</Text>
           </Card>
 
-          {/* Amount Card (LOCKED) */}
-          <Card style={styles.amountCard}>
-            <View style={styles.lockHeader}>
-              <Ionicons name="lock-closed" size={20} color={colors.primary} />
-              <Text style={styles.lockText}>Төлөх дүн (lock)</Text>
-            </View>
-
-            <Text style={styles.amountBig}>
+          {/* Current Remaining */}
+          <Card style={styles.remainingCard}>
+            <Text style={styles.remainingLabel}>Одоогийн үлдэгдэл</Text>
+            <Text style={styles.remainingAmount}>
               {formatCurrency(loan.remainingAmount)}
             </Text>
+          </Card>
+
+          {/* Extension Calculation */}
+          <Card style={styles.calcCard}>
+            <Text style={styles.calcTitle}>Сунгалтын тооцоо</Text>
+
+            <View style={styles.calcRow}>
+              <Text style={styles.calcLabel}>10% төлөлт (lock)</Text>
+              <Text style={styles.calcValue}>
+                {formatCurrency(extData.tenPercent)}
+              </Text>
+            </View>
 
             <View style={styles.divider} />
 
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Нийт дүн</Text>
-              <Text style={styles.infoValue}>
-                {formatCurrency(loan.totalAmount || loan.totalRepayment)}
+            <View style={styles.calcRow}>
+              <Text style={styles.calcLabel}>10% төлсний дараах үлдэгдэл</Text>
+              <Text style={styles.calcValue}>
+                {formatCurrency(extData.newRemainingAfterPayment)}
               </Text>
             </View>
 
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Төлсөн</Text>
-              <Text style={styles.infoValue}>
-                {formatCurrency(loan.paidAmount || 0)}
+            <View style={styles.calcRow}>
+              <Text style={styles.calcLabel}>Шинэ хүү ({loan.interestRate}%)</Text>
+              <Text style={styles.calcValue}>
+                {formatCurrency(extData.newInterest)}
               </Text>
             </View>
 
-            {loan.dueDate && (
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Хугацаа</Text>
-                <Text style={styles.infoValue}>
-                  {formatDate(loan.dueDate)}
-                </Text>
-              </View>
-            )}
+            <View style={styles.divider} />
+
+            <View style={styles.calcRow}>
+              <Text style={styles.calcLabelBold}>Нийт үлдэгдэл</Text>
+              <Text style={styles.calcValueBold}>
+                {formatCurrency(extData.totalRemainingAfterExtension)}
+              </Text>
+            </View>
+
+            <View style={styles.calcRow}>
+              <Text style={styles.calcLabel}>Шинэ хугацаа</Text>
+              <Text style={styles.calcValue}>
+                {formatDate(extData.newDueDate)}
+              </Text>
+            </View>
           </Card>
 
           {/* Wallet Balance */}
@@ -257,46 +222,32 @@ export default function PayLoanScreen({ navigation, route }) {
               <Text style={styles.walletLabel}>Таны хэтэвчийн үлдэгдэл</Text>
               <Text style={[
                 styles.walletBalance,
-                wallet && wallet.balance < loan.remainingAmount && { color: colors.error }
+                wallet && wallet.balance < extData.tenPercent && { color: colors.error }
               ]}>
                 {formatCurrency(wallet?.balance || 0)}
               </Text>
             </View>
 
-            {wallet && wallet.balance < loan.remainingAmount && (
+            {wallet && wallet.balance < extData.tenPercent && (
               <Text style={styles.warningText}>
                 ⚠️ Үлдэгдэл хүрэлцэхгүй байна. Эхлээд цэнэглэнэ үү.
               </Text>
             )}
           </Card>
 
-          {/* Зээл төлөх товч */}
+          {/* Extend Button */}
           <Button
-            title="Зээл төлөх"
-            onPress={handlePayLoan}
+            title="Зээл сунгах"
+            onPress={handleExtendLoan}
             loading={actionLoading}
-            disabled={!wallet || wallet.balance < loan.remainingAmount}
-            style={styles.payButton}
+            disabled={!wallet || wallet.balance < extData.tenPercent}
           />
-
-          {/* Зээл сунгах товч */}
-          {canExtend && (
-            <Button
-              title="Зээл сунгах (10% төлбөртэй)"
-              onPress={() => navigation.navigate('ExtendLoan', { loan })} 
-              loading={actionLoading}
-              variant="outline"
-              style={styles.extendButton}
-            />
-          )}
 
           {/* Info */}
           <Card style={styles.infoCard}>
             <Ionicons name="information-circle-outline" size={20} color={colors.primary} />
             <Text style={styles.infoCardText}>
-              {canExtend
-                ? `Зээл сунгахад нийт дүнгийн 10%-ийг одоо төлнө. Үлдэгдэл дээр шинэ хүү бодогдоно.`
-                : `Зээл бүрэн төлөх шаардлагатай. Хэтэвчний үлдэгдэл хүрэлцэхгүй бол эхлээд цэнэглэнэ үү.`}
+              Зээл сунгахад үлдэгдэл зээлийн 10%-ийг одоо төлнө. Үлдсэн дүн дээр шинэ хүү бодогдоно.
             </Text>
           </Card>
         </View>
@@ -347,48 +298,62 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.lightGray,
   },
-  amountCard: {
+  remainingCard: {
     padding: 24,
     marginBottom: 16,
+    alignItems: 'center',
     backgroundColor: colors.primary + '10',
     borderWidth: 1,
     borderColor: colors.primary + '30',
   },
-  lockHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
+  remainingLabel: {
+    fontSize: 14,
+    color: colors.lightGray,
+    marginBottom: 8,
   },
-  lockText: {
-    fontSize: 13,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  amountBig: {
+  remainingAmount: {
     fontSize: 36,
     fontWeight: 'bold',
     color: colors.white,
+  },
+  calcCard: {
+    padding: 20,
     marginBottom: 16,
   },
-  divider: {
-    height: 1,
-    backgroundColor: colors.gray + '30',
-    marginVertical: 16,
+  calcTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.white,
+    marginBottom: 16,
   },
-  infoRow: {
+  calcRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 12,
   },
-  infoLabel: {
+  calcLabel: {
     fontSize: 14,
     color: colors.lightGray,
   },
-  infoValue: {
+  calcValue: {
     fontSize: 14,
     fontWeight: '500',
     color: colors.white,
+  },
+  calcLabelBold: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.white,
+  },
+  calcValueBold: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.primary,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.gray + '30',
+    marginVertical: 12,
   },
   walletCard: {
     padding: 20,
@@ -413,16 +378,11 @@ const styles = StyleSheet.create({
     color: colors.error,
     marginTop: 12,
   },
-  payButton: {
-    marginBottom: 12,
-  },
-  extendButton: {
-    marginBottom: 16,
-  },
   infoCard: {
     flexDirection: 'row',
     padding: 16,
     backgroundColor: colors.primary + '10',
+    marginTop: 16,
     gap: 12,
   },
   infoCardText: {

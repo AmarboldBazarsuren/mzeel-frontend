@@ -60,54 +60,89 @@ export default function HomeScreen({ navigation }) {
     }, []);
 
     // ✅ ШИНЭ: loadLoanData функц тодорхойлох
-    const loadLoanData = async () => {
+   const loadLoanData = async () => {
+    try {
+      // Profile авах (алдаа гарвал null хэвээр үлдээнэ)
       try {
         const profileRes = await api.getProfile();
         if (profileRes.success) setProfile(profileRes.data.profile);
-
-        const loansRes = await api.getMyLoans(1);
-        if (loansRes.success) {
-          // Идэвхтэй зээлүүд
-          const active = loansRes.data.loans.filter(loan =>
-            ['disbursed', 'active', 'overdue'].includes(loan.status)
-          );
-          setActiveLoans(active);
-        }
-      } catch (error) {
-        console.error('Loan data load error:', error);
+      } catch (profileError) {
+        console.log('Profile байхгүй:', profileError.message);
+        // Profile байхгүй бол зүгээр null хэвээр үлдэнэ
       }
-    };
 
+      // Зээлүүд авах
+      const loansRes = await api.getMyLoans(1);
+      if (loansRes.success) {
+        const active = loansRes.data.loans.filter(loan =>
+          ['disbursed', 'active', 'overdue'].includes(loan.status)
+        );
+        setActiveLoans(active);
+      }
+    } catch (error) {
+      console.error('Loan data load error:', error);
+      // Алдаа гарвал app унахгүй
+    }
+  };
     // ✅ Зээл авах function
-    const handleRequestLoan = () => {
-      if (!profile || !profile.isVerified) {
-        Alert.alert('Хувийн мэдээлэл шаардлагатай', 'Эхлээд хувийн мэдээллээ бөглөнө үү', [
-          { text: 'За', onPress: () => navigation.navigate('ProfileForm') }
-        ]);
-        return;
-      }
+    // ✅ Зээл авах function
+const handleRequestLoan = () => {
+  // Profile шалгах
+  if (!profile) {
+    Alert.alert(
+      '📝 Хувийн мэдээлэл шаардлагатай',
+      'Зээл авахын тулд эхлээд хувийн мэдээллээ бөглөнө үү',
+      [
+        { text: 'Болих', style: 'cancel' },
+        { 
+          text: '✏️ Бөглөх', 
+          onPress: () => navigation.navigate('ProfileForm') 
+        }
+      ]
+    );
+    return;
+  }
 
-      if (profile.availableLoanLimit <= 0) {
-        Alert.alert('Зээлийн эрх байхгүй', 'Та зээл авах эрхгүй байна');
-        return;
-      }
+  // Profile баталгаажаагүй бол
+  if (!profile.isVerified) {
+    Alert.alert(
+      '⏳ Хувийн мэдээлэл баталгаажаагүй',
+      'Админ таны хувийн мэдээллийг баталгаажуулах хүртэл хүлээнэ үү',
+      [{ text: 'За' }]
+    );
+    return;
+  }
 
-      // Шинэ хуудас руу шилжүүлэх
-      navigation.navigate('RequestLoan', { profile });
-    };
+  // Зээлийн эрх байхгүй бол
+  if (profile.availableLoanLimit <= 0) {
+    Alert.alert(
+      '❌ Зээлийн эрх байхгүй',
+      'Та одоогоор зээл авах эрхгүй байна. Админтай холбогдоно уу.',
+      [{ text: 'За' }]
+    );
+    return;
+  }
+
+  // ✅ Бүх зүйл OK бол шинэ хуудас руу шилжүүлэх
+  navigation.navigate('RequestLoan', { profile });
+};
 
     // ✅ Зээл төлөх function
     // ✅ Зээл төлөх function (ШИНЭЧИЛСЭН)
+// ✅ Зээл төлөх function
 const handlePayLoan = () => {
   if (activeLoans.length === 0) {
-    Alert.alert('Зээл байхгүй', 'Та төлөх зээлгүй байна');
+    Alert.alert(
+      '💳 Зээл байхгүй',
+      'Та төлөх зээлгүй байна',
+      [{ text: 'За' }]
+    );
     return;
   }
 
   // ✅ ActiveLoans хуудас руу шилжүүлэх
   navigation.navigate('ActiveLoans');
 };
-
     return (
       <Card style={styles.loanLimitCard}>
         <View style={styles.loanLimitHeader}>
