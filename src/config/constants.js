@@ -16,7 +16,7 @@ export const API_URL = 'http://172.20.10.2:5000/api';  // ✅ PORT нэмсэн!
 // export const API_URL = 'http://10.0.2.2:5000/api';
 
 // App тохиргоо
-export const APP_NAME = 'Mcredit';
+export const APP_NAME = 'ZeelX';
 export const VERIFICATION_FEE = 3000;
 export const MIN_LOAN_AMOUNT = 10000;
 export const MAX_LOAN_AMOUNT = 500000;

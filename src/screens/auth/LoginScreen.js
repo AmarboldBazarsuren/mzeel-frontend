@@ -61,9 +61,9 @@ export default function LoginScreen({ navigation }) {
         {/* Logo */}
         <View style={styles.logoContainer}>
           <View style={styles.logoBox}>
-            <Text style={styles.logoM}>M</Text>
-          </View>
-          <Text style={styles.logoText}>credit</Text>
+  <Text style={styles.logoX}>X</Text>
+</View>
+<Text style={styles.logoText}>ZeelX</Text>
         </View>
 
         {/* Form */}
@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  logoM: {
+  logoX: {
     fontSize: 48,
     fontWeight: 'bold',
     color: colors.white,

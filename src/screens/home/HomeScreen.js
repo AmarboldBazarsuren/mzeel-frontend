@@ -82,57 +82,65 @@ const LoanLimitCard = () => {
   };
 
   // ✅ Зээл авах function
-  const handleRequestLoan = async () => {
-    if (!profile || !profile.isVerified) {
-      Alert.alert('Хувийн мэдээлэл шаардлагатай', 'Эхлээд хувийн мэдээллээ бөглөнө үү', [
-        { text: 'За', onPress: () => navigation.navigate('ProfileForm') }
-      ]);
-      return;
-    }
+  // frontend/src/screens/home/HomeScreen.js (55-100 дахь мөр)
 
-    if (profile.availableLoanLimit <= 0) {
-      Alert.alert('Зээлийн эрх байхгүй', 'Та зээл авах эрхгүй байна');
-      return;
-    }
+// ✅ ЗАСВАРЛАСАН: handleRequestLoan function
+const handleRequestLoan = async () => {
+  if (!profile || !profile.isVerified) {
+    Alert.alert('Хувийн мэдээлэл шаардлагатай', 'Эхлээд хувийн мэдээллээ бөглөнө үү', [
+      { text: 'За', onPress: () => navigation.navigate('ProfileForm') }
+    ]);
+    return;
+  }
 
-   
-    // Дүн оруулуулах
-    Alert.prompt(
-      'Зээл авах',
-      `Дээд хэмжээ: ${formatCurrency(profile.availableLoanLimit)}\n\nХэдэн төгрөг авах вэ?`,
-      [
-        { text: 'Болих', style: 'cancel' },
-        {
-          text: 'Илгээх',
-          onPress: async (amount) => {
-            const loanAmount = parseInt(amount);
-            if (!loanAmount || loanAmount < 10000) {
-              Alert.alert('Алдаа', 'Хамгийн багадаа 10,000₮');
-              return;
-            }
-            if (loanAmount > profile.availableLoanLimit) {
-              Alert.alert('Алдаа', `Дээд хэмжээ: ${formatCurrency(profile.availableLoanLimit)}`);
-              return;
-            }
+  if (profile.availableLoanLimit <= 0) {
+    Alert.alert('Зээлийн эрх байхгүй', 'Та зээл авах эрхгүй байна');
+    return;
+  }
 
-            try {
-              const res = await api.requestApprovedLoan(loanAmount);
-              if (res.success) {
-                Alert.alert('Амжилттай', 'Хүсэлт илгээгдлээ. Админ зөвшөөрнө.', [
-                  { text: 'За', onPress: () => { loadData(); loadLoanData(); } }
-                ]);
-              }
-            } catch (error) {
-              Alert.alert('Алдаа', error.message);
+  // ✅ УСТГАСАН: Идэвхтэй зээл шалгах хэсэг
+  // if (activeLoans.length > 0) {
+  //   Alert.alert('Идэвхтэй зээл байна', 'Та өмнөх зээлээ төлөөд шинэ зээл авна уу');
+  //   return;
+  // }
+
+  // Дүн оруулуулах
+  Alert.prompt(
+    'Зээл авах',
+    `Дээд хэмжээ: ${formatCurrency(profile.availableLoanLimit)}\n\nХэдэн төгрөг авах вэ?`,
+    [
+      { text: 'Болих', style: 'cancel' },
+      {
+        text: 'Илгээх',
+        onPress: async (amount) => {
+          const loanAmount = parseInt(amount);
+          if (!loanAmount || loanAmount < 10000) {
+            Alert.alert('Алдаа', 'Хамгийн багадаа 10,000₮');
+            return;
+          }
+          if (loanAmount > profile.availableLoanLimit) {
+            Alert.alert('Алдаа', `Дээд хэмжээ: ${formatCurrency(profile.availableLoanLimit)}`);
+            return;
+          }
+
+          try {
+            const res = await api.requestApprovedLoan(loanAmount);
+            if (res.success) {
+              Alert.alert('Амжилттай', 'Хүсэлт илгээгдлээ. Админ зөвшөөрнө.', [
+                { text: 'За', onPress: () => { loadData(); loadLoanData(); } }
+              ]);
             }
+          } catch (error) {
+            Alert.alert('Алдаа', error.message);
           }
         }
-      ],
-      'plain-text',
-      '',
-      'number-pad'
-    );
-  };
+      }
+    ],
+    'plain-text',
+    '',
+    'number-pad'
+  );
+};
 
   // ✅ Зээл төлөх function
   const handlePayLoan = () => {
@@ -166,13 +174,13 @@ const LoanLimitCard = () => {
       <View style={styles.loanButtonsRow}>
         {/* Зээл авах товч */}
         <TouchableOpacity
-          style={[styles.loanActionButton, styles.loanActionButtonPrimary]}
-          onPress={handleRequestLoan}
-          disabled={!profile || profile.availableLoanLimit <= 0 || activeLoans.length > 0}
-        >
-          <Ionicons name="cash-outline" size={20} color={colors.white} />
-          <Text style={styles.loanActionButtonText}>Зээл авах</Text>
-        </TouchableOpacity>
+  style={[styles.loanActionButton, styles.loanActionButtonPrimary]}
+  onPress={handleRequestLoan}
+  disabled={!profile || profile.availableLoanLimit <= 0} // ✅ Зөвхөн эрх шалгана
+>
+  <Ionicons name="cash-outline" size={20} color={colors.white} />
+  <Text style={styles.loanActionButtonText}>Зээл авах</Text>
+</TouchableOpacity>
 
         {/* Зээл төлөх товч */}
         <TouchableOpacity
@@ -186,14 +194,18 @@ const LoanLimitCard = () => {
       </View>
 
       {/* ✅ Идэвхтэй зээлийн мэдээлэл */}
-      {activeLoans.length > 0 && (
-        <View style={styles.activeLoanInfo}>
-          <Text style={styles.activeLoanLabel}>Идэвхтэй зээл:</Text>
-          <Text style={styles.activeLoanAmount}>
-            {formatCurrency(activeLoans[0].remainingAmount)} үлдэгдэл
-          </Text>
-        </View>
-      )}
+     {activeLoans.length > 0 && (
+  <View style={styles.activeLoanInfo}>
+    <Text style={styles.activeLoanLabel}>
+      Идэвхтэй зээл: ({activeLoans.length} ширхэг)
+    </Text>
+    <Text style={styles.activeLoanAmount}>
+      {formatCurrency(
+        activeLoans.reduce((sum, loan) => sum + (loan.remainingAmount || 0), 0)
+      )} үлдэгдэл
+    </Text>
+  </View>
+)}
     </Card>
   );
 };
@@ -294,11 +306,11 @@ const LoanLimitCard = () => {
         </TouchableOpacity>
         
         <View style={styles.logoHeader}>
-          <View style={styles.logoSmall}>
-            <Text style={styles.logoSmallText}>M</Text>
-          </View>
-          <Text style={styles.headerTitle}>credit</Text>
-        </View>
+  <View style={styles.logoSmall}>
+    <Text style={styles.logoSmallText}>X</Text>
+  </View>
+  <Text style={styles.headerTitle}>ZeelX</Text>
+</View>
 
         <TouchableOpacity onPress={() => Alert.alert('Мэдэгдэл', 'Мэдэгдэл байхгүй')}>
           <Ionicons name="notifications" size={24} color={colors.white} />
