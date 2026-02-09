@@ -1,6 +1,6 @@
-// mzeel-app/src/screens/settings/SettingsScreen.js
+// frontend/src/screens/settings/SettingsScreen.js
 
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,15 +8,24 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
+import { api } from '../../api/client';
 import Card from '../../components/common/Card';
 import colors from '../../styles/colors';
 
 export default function SettingsScreen({ navigation }) {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await updateUser();
+    setRefreshing(false);
+  }, []);
 
   const handleLogout = () => {
     Alert.alert('Гарах', 'Та гарахдаа итгэлтэй байна уу?', [
@@ -54,7 +63,12 @@ export default function SettingsScreen({ navigation }) {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.white} />
+        }
+      >
         {/* User Info */}
         <Card style={styles.userCard}>
           <View style={styles.userInfo}>

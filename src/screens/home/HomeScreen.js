@@ -29,22 +29,22 @@ export default function HomeScreen({ navigation }) {
   useEffect(() => {
     loadData();
   }, []);
+const loadData = async () => {
+  try {
+    const [walletRes, loansRes] = await Promise.all([
+      api.getWallet(),
+      api.getMyLoans(1),
+    ]);
 
-  const loadData = async () => {
-    try {
-      const [walletRes, loansRes, transRes] = await Promise.all([
-        api.getWallet(),
-        api.getMyLoans(1),
-        api.getTransactions(1),
-      ]);
-
-      if (walletRes.success) setWallet(walletRes.data.wallet);
-      if (loansRes.success) setLoans(loansRes.data.loans.slice(0, 3));
-      if (transRes.success) setTransactions(transRes.data.transactions.slice(0, 5));
-    } catch (error) {
-      console.error('Өгөгдөл татах алдаа:', error);
-    }
-  };
+    if (walletRes.success) setWallet(walletRes.data.wallet);
+    if (loansRes.success) setLoans(loansRes.data.loans);
+    
+    // Profile-ийн мэдээллийг шинэчлэх (LoanLimitCard-д)
+    await loadLoanData();
+  } catch (error) {
+    console.error('Өгөгдөл татах алдаа:', error);
+  }
+};
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -85,7 +85,7 @@ const LoanLimitCard = () => {
   // frontend/src/screens/home/HomeScreen.js (55-100 дахь мөр)
 
 // ✅ ЗАСВАРЛАСАН: handleRequestLoan function
-const handleRequestLoan = async () => {
+const handleRequestLoan = () => {
   if (!profile || !profile.isVerified) {
     Alert.alert('Хувийн мэдээлэл шаардлагатай', 'Эхлээд хувийн мэдээллээ бөглөнө үү', [
       { text: 'За', onPress: () => navigation.navigate('ProfileForm') }
@@ -98,48 +98,8 @@ const handleRequestLoan = async () => {
     return;
   }
 
-  // ✅ УСТГАСАН: Идэвхтэй зээл шалгах хэсэг
-  // if (activeLoans.length > 0) {
-  //   Alert.alert('Идэвхтэй зээл байна', 'Та өмнөх зээлээ төлөөд шинэ зээл авна уу');
-  //   return;
-  // }
-
-  // Дүн оруулуулах
-  Alert.prompt(
-    'Зээл авах',
-    `Дээд хэмжээ: ${formatCurrency(profile.availableLoanLimit)}\n\nХэдэн төгрөг авах вэ?`,
-    [
-      { text: 'Болих', style: 'cancel' },
-      {
-        text: 'Илгээх',
-        onPress: async (amount) => {
-          const loanAmount = parseInt(amount);
-          if (!loanAmount || loanAmount < 10000) {
-            Alert.alert('Алдаа', 'Хамгийн багадаа 10,000₮');
-            return;
-          }
-          if (loanAmount > profile.availableLoanLimit) {
-            Alert.alert('Алдаа', `Дээд хэмжээ: ${formatCurrency(profile.availableLoanLimit)}`);
-            return;
-          }
-
-          try {
-            const res = await api.requestApprovedLoan(loanAmount);
-            if (res.success) {
-              Alert.alert('Амжилттай', 'Хүсэлт илгээгдлээ. Админ зөвшөөрнө.', [
-                { text: 'За', onPress: () => { loadData(); loadLoanData(); } }
-              ]);
-            }
-          } catch (error) {
-            Alert.alert('Алдаа', error.message);
-          }
-        }
-      }
-    ],
-    'plain-text',
-    '',
-    'number-pad'
-  );
+  // Шинэ хуудас руу шилжүүлэх
+  navigation.navigate('RequestLoan', { profile });
 };
 
   // ✅ Зээл төлөх function
@@ -194,16 +154,26 @@ const handleRequestLoan = async () => {
       </View>
 
       {/* ✅ Идэвхтэй зээлийн мэдээлэл */}
-     {activeLoans.length > 0 && (
+{activeLoans.length > 0 && (
   <View style={styles.activeLoanInfo}>
-    <Text style={styles.activeLoanLabel}>
-      Идэвхтэй зээл: ({activeLoans.length} ширхэг)
-    </Text>
-    <Text style={styles.activeLoanAmount}>
-      {formatCurrency(
-        activeLoans.reduce((sum, loan) => sum + (loan.remainingAmount || 0), 0)
-      )} үлдэгдэл
-    </Text>
+    <View style={styles.activeLoanRow}>
+      <Text style={styles.activeLoanLabel}>
+        Идэвхтэй зээл: ({activeLoans.length} ширхэг)
+      </Text>
+      <Text style={styles.activeLoanValue}>
+        {formatCurrency(
+          activeLoans.reduce((sum, loan) => sum + (loan.disbursedAmount || 0), 0)
+        )}
+      </Text>
+    </View>
+    <View style={styles.activeLoanRow}>
+      <Text style={styles.activeLoanLabel}>Үлдэгдэл төлөх:</Text>
+      <Text style={styles.activeLoanAmount}>
+        {formatCurrency(
+          activeLoans.reduce((sum, loan) => sum + (loan.remainingAmount || 0), 0)
+        )}
+      </Text>
+    </View>
   </View>
 )}
     </Card>
@@ -226,73 +196,138 @@ const handleRequestLoan = async () => {
   );
 
   // Сүүлийн гүйлгээ
-  const RecentTransactions = () => (
+  // ✅ ШИНЭ: Зээлүүдийн жагсаалт (Идэвхтэй, Хүлээгдэж буй, Төлөгдсөн)
+const LoansList = () => {
+  const [filter, setFilter] = useState('active'); // 'active', 'pending', 'paid'
+
+  const filteredLoans = loans.filter(loan => {
+    if (filter === 'active') {
+      return ['disbursed', 'active', 'overdue'].includes(loan.status);
+    } else if (filter === 'pending') {
+      return ['pending_disbursement', 'approved'].includes(loan.status);
+    } else if (filter === 'paid') {
+      return loan.status === 'paid';
+    }
+    return false;
+  });
+
+  return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Сүүлийн 5 гүйлгээ</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Wallet')}>
+        <Text style={styles.sectionTitle}>Миний зээлүүд</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('Loans')}>
           <Text style={styles.seeAll}>Бүгд ›</Text>
         </TouchableOpacity>
       </View>
 
-      {transactions.length === 0 ? (
+      {/* Шүүлтүүр */}
+      <View style={styles.loanFilters}>
+        <TouchableOpacity
+          style={[styles.filterBtn, filter === 'active' && styles.filterBtnActive]}
+          onPress={() => setFilter('active')}
+        >
+          <Text style={[styles.filterText, filter === 'active' && styles.filterTextActive]}>
+            Идэвхтэй
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.filterBtn, filter === 'pending' && styles.filterBtnActive]}
+          onPress={() => setFilter('pending')}
+        >
+          <Text style={[styles.filterText, filter === 'pending' && styles.filterTextActive]}>
+            Хүлээгдэж буй
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.filterBtn, filter === 'paid' && styles.filterBtnActive]}
+          onPress={() => setFilter('paid')}
+        >
+          <Text style={[styles.filterText, filter === 'paid' && styles.filterTextActive]}>
+            Төлөгдсөн
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {filteredLoans.length === 0 ? (
         <Card style={styles.emptyCard}>
           <Ionicons name="receipt-outline" size={48} color={colors.gray} />
-          <Text style={styles.emptyText}>Гүйлгээ байхгүй байна</Text>
+          <Text style={styles.emptyText}>Зээл байхгүй байна</Text>
         </Card>
       ) : (
-        transactions.map((transaction) => (
-          <Card key={transaction._id} style={styles.transactionCard}>
-            <View style={styles.transactionRow}>
-              <View
-                style={[
-                  styles.transactionIcon,
+        filteredLoans.map((loan) => (
+          <Card
+            key={loan._id}
+            style={styles.loanCard}
+            onPress={() => navigation.navigate('LoanDetail', { loanId: loan._id })}
+          >
+            <View style={styles.loanCardHeader}>
+              <Text style={styles.loanNumber}>{loan.loanNumber}</Text>
+              <View style={[
+                styles.loanStatusBadge,
+                {
+                  backgroundColor:
+                    loan.status === 'paid' ? colors.green + '20' :
+                    loan.status === 'overdue' ? colors.error + '20' :
+                    loan.status === 'disbursed' || loan.status === 'active' ? colors.primary + '20' :
+                    colors.warning + '20'
+                }
+              ]}>
+                <Text style={[
+                  styles.loanStatusText,
                   {
-                    backgroundColor:
-                      transaction.type === 'deposit' || transaction.type === 'loan_disbursement'
-                        ? colors.green + '20'
-                        : colors.primary + '20',
-                  },
-                ]}
-              >
-                <Ionicons
-                  name={
-                    transaction.type === 'deposit' || transaction.type === 'loan_disbursement'
-                      ? 'arrow-down'
-                      : 'arrow-up'
+                    color:
+                      loan.status === 'paid' ? colors.green :
+                      loan.status === 'overdue' ? colors.error :
+                      loan.status === 'disbursed' || loan.status === 'active' ? colors.primary :
+                      colors.warning
                   }
-                  size={20}
-                  color={
-                    transaction.type === 'deposit' || transaction.type === 'loan_disbursement'
-                      ? colors.green
-                      : colors.primary
-                  }
-                />
-              </View>
-              <View style={styles.transactionInfo}>
-                <Text style={styles.transactionDesc}>{transaction.description}</Text>
-                <Text style={styles.transactionDate}>
-                  {formatDate(transaction.createdAt)}
+                ]}>
+                  {loan.status === 'disbursed' ? 'Олгогдсон' :
+                   loan.status === 'active' ? 'Идэвхтэй' :
+                   loan.status === 'paid' ? 'Төлөгдсөн' :
+                   loan.status === 'overdue' ? 'Хугацаа хэтэрсэн' :
+                   loan.status === 'approved' ? 'Зөвшөөрөгдсөн' :
+                   'Хүлээгдэж байна'}
                 </Text>
               </View>
-              <Text
-                style={[
-                  styles.transactionAmount,
-                  transaction.type === 'deposit' || transaction.type === 'loan_disbursement'
-                    ? styles.positive
-                    : styles.negative,
-                ]}
-              >
-                {transaction.type === 'deposit' || transaction.type === 'loan_disbursement' ? '+' : '-'}
-                {formatCurrency(transaction.amount)}
-              </Text>
+            </View>
+
+            <View style={styles.loanCardBody}>
+              <View style={styles.loanRow}>
+                <Text style={styles.loanLabel}>Зээлийн дүн</Text>
+                <Text style={styles.loanValue}>
+                  {formatCurrency(loan.disbursedAmount || loan.approvedAmount || 0)}
+                </Text>
+              </View>
+
+              {loan.remainingAmount > 0 && (
+                <View style={styles.loanRow}>
+                  <Text style={styles.loanLabel}>Үлдэгдэл</Text>
+                  <Text style={[styles.loanValue, { color: colors.primary }]}>
+                    {formatCurrency(loan.remainingAmount)}
+                  </Text>
+                </View>
+              )}
+
+              <View style={styles.loanRow}>
+                <Text style={styles.loanLabel}>Огноо</Text>
+                <Text style={styles.loanValue}>
+                  {formatDate(loan.createdAt)}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.loanCardFooter}>
+              <Text style={styles.loanFooterText}>Дэлгэрэнгүй харах →</Text>
             </View>
           </Card>
         ))
       )}
     </View>
   );
-
+};
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
@@ -327,7 +362,7 @@ const handleRequestLoan = async () => {
           {/* ✅ ШИНЭ ДАРААЛАЛ */}
           <LoanLimitCard />
           <WalletBalance />
-          <RecentTransactions />
+          <LoansList />
         </View>
       </ScrollView>
     </View>
@@ -558,5 +593,89 @@ activeLoanAmount: {
   color: colors.primary,
   fontSize: 16,
   fontWeight: '700',
+},
+activeLoanRow: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: 8,
+},
+activeLoanValue: {
+  color: colors.white,
+  fontSize: 16,
+  fontWeight: '600',
+},
+loanFilters: {
+  flexDirection: 'row',
+  gap: 8,
+  marginBottom: 16,
+},
+filterBtn: {
+  paddingHorizontal: 16,
+  paddingVertical: 8,
+  borderRadius: 20,
+  backgroundColor: colors.darkGray,
+},
+filterBtnActive: {
+  backgroundColor: colors.primary,
+},
+filterText: {
+  color: colors.lightGray,
+  fontSize: 13,
+  fontWeight: '500',
+},
+filterTextActive: {
+  color: colors.white,
+},
+loanCard: {
+  marginBottom: 12,
+  padding: 16,
+},
+loanCardHeader: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: 12,
+},
+loanNumber: {
+  color: colors.white,
+  fontSize: 15,
+  fontWeight: '600',
+},
+loanStatusBadge: {
+  paddingHorizontal: 12,
+  paddingVertical: 4,
+  borderRadius: 12,
+},
+loanStatusText: {
+  fontSize: 11,
+  fontWeight: '600',
+},
+loanCardBody: {
+  marginBottom: 12,
+},
+loanRow: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  marginBottom: 8,
+},
+loanLabel: {
+  color: colors.lightGray,
+  fontSize: 13,
+},
+loanValue: {
+  color: colors.white,
+  fontSize: 13,
+  fontWeight: '500',
+},
+loanCardFooter: {
+  paddingTop: 12,
+  borderTopWidth: 1,
+  borderTopColor: colors.gray + '30',
+},
+loanFooterText: {
+  color: colors.primary,
+  fontSize: 12,
+  fontWeight: '500',
 },
 });

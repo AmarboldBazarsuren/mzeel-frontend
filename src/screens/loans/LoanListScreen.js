@@ -17,12 +17,14 @@ import { formatCurrency, formatDate } from '../../utils/formatters';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
 import colors from '../../styles/colors';
+import { RefreshControl } from 'react-native';
 
 export default function LoanListScreen({ navigation }) {
   const [loans, setLoans] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [verifying, setVerifying] = useState(false);
+const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadLoans();
@@ -47,7 +49,11 @@ export default function LoanListScreen({ navigation }) {
       setLoading(false);
     }
   };
-
+const onRefresh = useCallback(async () => {
+  setRefreshing(true);
+  await loadLoans();
+  setRefreshing(false);
+}, [page]);
   const handleVerifyLoan = async () => {
     Alert.alert(
       'Баталгаажуулалт',
@@ -126,7 +132,12 @@ export default function LoanListScreen({ navigation }) {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+  showsVerticalScrollIndicator={false}
+  refreshControl={
+    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.white} />
+  }
+>
         {/* Stats Card */}
         {stats && (
           <Card style={styles.statsCard}>

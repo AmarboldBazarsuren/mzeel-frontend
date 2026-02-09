@@ -1,4 +1,5 @@
-// mzeel-app/src/screens/loans/LoanDetailScreen.js
+// frontend/src/screens/loans/LoanDetailScreen.js
+// Зээлийн дэлгэрэнгүй + Төлбөр төлөх + Зээл сунгах
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -9,92 +10,221 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  Modal,
-  KeyboardAvoidingView,
-  Platform
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../api/client';
-import { formatCurrency, formatDate } from '../../utils/formatters';
-import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
-import Input from '../../components/common/Input';
+import Card from '../../components/common/Card';
 import colors from '../../styles/colors';
+import { formatCurrency, formatDate } from '../../utils/formatters';
 
-export default function LoanDetailScreen({ route, navigation }) {
+export default function LoanDetailScreen({ navigation, route }) {
   const { loanId } = route.params;
+  
   const [loan, setLoan] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [paymentModal, setPaymentModal] = useState(false);
-  const [paymentAmount, setPaymentAmount] = useState('');
-  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
-    loadLoan();
+    loadLoanDetail();
   }, []);
 
-  const loadLoan = async () => {
+  const loadLoanDetail = async () => {
     try {
       setLoading(true);
-      const response = await api.getLoanDetails(loanId);
-
-      if (response.success) {
-        setLoan(response.data.loan);
+      const res = await api.getLoanById(loanId);
+      if (res.success) {
+        setLoan(res.data.loan);
       }
     } catch (error) {
-      Alert.alert('Алдаа', 'Зээлийн мэдээлэл татахад алдаа гарлаа');
-      navigation.goBack();
+      Alert.alert('Алдаа', error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePayment = async () => {
-    const amount = parseInt(paymentAmount);
+  // Төлбөр төлөх
+  const handleMakePayment = () => {
+    if (!loan) return;
 
-    if (!amount || amount <= 0) {
-      Alert.alert('Алдаа', 'Төлөх дүнгээ оруулна уу');
-      return;
-    }
+    Alert.prompt(
+      'Төлбөр төлөх',
+      `Үлдэгдэл: ${formatCurrency(loan.remainingAmount)}\n\nХэдэн төгрөг төлөх вэ?`,
+      [
+        { text: 'Болих', style: 'cancel' },
+        {
+          text: 'Төлөх',
+          onPress: async (amount) => {
+            const paymentAmount = parseFloat(amount);
+            
+            if (!paymentAmount || paymentAmount <= 0) {
+              Alert.alert('Алдаа', 'Зөв дүн оруулна уу');
+              return;
+            }
 
-    if (amount > loan.remainingAmount) {
-      Alert.alert('Алдаа', `Үлдэгдэл ${formatCurrency(loan.remainingAmount)}`);
-      return;
-    }
+            if (paymentAmount > loan.remainingAmount) {
+              Alert.alert('Алдаа', 'Төлөх дүн үлдэгдлээс их байна');
+              return;
+            }
 
-    try {
-      setPaymentLoading(true);
-      const response = await api.payLoan(loanId, amount);
+            try {
+              setActionLoading(true);
+              const res = await api.makePayment({
+                loanId: loan._id,
+                amount: paymentAmount,
+              });
 
-      if (response.success) {
-        Alert.alert('Амжилттай', 'Төлбөр амжилттай төлөгдлөө', [
-          {
-            text: 'За',
-            onPress: () => {
-              setPaymentModal(false);
-              setPaymentAmount('');
-              loadLoan();
-            },
+              if (res.success) {
+                Alert.alert(
+                  'Амжилттай',
+                  'Төлбөр амжилттай төлөгдлөө',
+                  [{ text: 'За', onPress: () => loadLoanDetail() }]
+                );
+              }
+            } catch (error) {
+              Alert.alert('Алдаа', error.message);
+            } finally {
+              setActionLoading(false);
+            }
           },
-        ]);
-      }
-    } catch (error) {
-      Alert.alert('Алдаа', error.message || 'Төлбөр төлөхөд алдаа гарлаа');
-    } finally {
-      setPaymentLoading(false);
+        },
+      ],
+      'plain-text',
+      '',
+      'number-pad'
+    );
+  };
+
+  // Зээл сунгах
+  const handleExtendLoan = () => {
+    if (!loan) return;
+
+    // 14 хоногийн зээлийг сунгаж болохгүй
+    if (loan.termDays === 14) {
+      Alert.alert(
+        'Анхааруулга',
+        '14 хоногийн зээлийг сунгах боломжгүй'
+      );
+      return;
     }
+
+    // Сунгалтын мэдээлэл бэлтгэх
+    const extensionInterest = Math.round(
+      loan.disbursedAmount * (loan.interestRate / 100)
+    );
+    
+    const extensionDays = loan.termDays;
+    
+    const newDueDate = new Date(loan.dueDate);
+    newDueDate.setDate(newDueDate.getDate() + extensionDays);
+
+    Alert.alert(
+      'Зээл сунгах',
+      `Зээлийн хугацааг ${extensionDays} хоногоор сунгах уу?\n\n` +
+      `Нэмэгдэх хүү: ${formatCurrency(extensionInterest)}\n` +
+      `Шинэ үлдэгдэл: ${formatCurrency(loan.remainingAmount + extensionInterest)}\n` +
+      `Шинэ хугацаа: ${formatDate(newDueDate)}\n\n` +
+      `⚠️ Зөвхөн хүүгийн дүн төлөгдөнө, үндсэн зээл хэвээр үлдэнэ.`,
+      [
+        { text: 'Болих', style: 'cancel' },
+        {
+          text: 'Сунгах',
+          style: 'default',
+          onPress: async () => {
+            try {
+              setActionLoading(true);
+              const res = await api.extendLoan(loan._id);
+
+              if (res.success) {
+                Alert.alert(
+                  'Амжилттай',
+                  res.message || 'Зээл амжилттай сунгагдлаа',
+                  [{ text: 'За', onPress: () => loadLoanDetail() }]
+                );
+              }
+            } catch (error) {
+              Alert.alert('Алдаа', error.message);
+            } finally {
+              setActionLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'paid':
+        return colors.green;
+      case 'overdue':
+        return colors.error;
+      case 'disbursed':
+      case 'active':
+        return colors.primary;
+      case 'approved':
+        return colors.warning;
+      default:
+        return colors.gray;
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'pending':
+        return 'Хүлээгдэж байна';
+      case 'approved':
+        return 'Зөвшөөрөгдсөн';
+      case 'rejected':
+        return 'Татгалзсан';
+      case 'disbursed':
+        return 'Олгогдсон';
+      case 'active':
+        return 'Идэвхтэй';
+      case 'overdue':
+        return 'Хугацаа хэтэрсэн';
+      case 'paid':
+        return 'Төлөгдсөн';
+      case 'pending_disbursement':
+        return 'Олгох хүлээгдэж байна';
+      default:
+        return status;
+    }
+  };
+
+  const getTermText = (days) => {
+    if (days === 14) return '14 хоног';
+    if (days === 30) return '1 сар';
+    if (days === 90) return '3 сар';
+    return `${days} хоног`;
   };
 
   if (loading) {
     return (
-      <View style={styles.centered}>
+      <View style={[styles.container, styles.centered]}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
-  const canPay = ['disbursed', 'active', 'overdue'].includes(loan?.status);
+  if (!loan) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <Text style={styles.errorText}>Зээл олдсонгүй</Text>
+      </View>
+    );
+  }
+
+  // Зээл сунгах боломжтой эсэх
+  const canExtend =
+    loan.termDays !== 14 &&
+    ['disbursed', 'active', 'overdue'].includes(loan.status);
+
+  // Төлбөр төлөх боломжтой эсэх
+  const canPay =
+    ['disbursed', 'active', 'overdue'].includes(loan.status) &&
+    loan.remainingAmount > 0;
 
   return (
     <View style={styles.container}>
@@ -110,177 +240,178 @@ export default function LoanDetailScreen({ route, navigation }) {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Loan Number */}
-        <View style={styles.loanNumberSection}>
-          <Text style={styles.loanNumberLabel}>Зээлийн дугаар</Text>
-          <Text style={styles.loanNumber}>{loan.loanNumber}</Text>
-        </View>
-
-        {/* Main Info Card */}
-        <Card style={styles.infoCard}>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Төлөв</Text>
-            <Text style={[styles.infoValue, { color: colors.primary }]}>
-              {loan.status === 'disbursed' && 'Олгогдсон'}
-              {loan.status === 'active' && 'Идэвхтэй'}
-              {loan.status === 'paid' && 'Төлөгдсөн'}
-              {loan.status === 'approved' && 'Зөвшөөрөгдсөн'}
-            </Text>
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Зээлийн дүн</Text>
-            <Text style={styles.infoValue}>
-              {formatCurrency(loan.disbursedAmount || loan.approvedAmount)}
-            </Text>
-          </View>
-
-          {loan.totalRepayment > 0 && (
-            <>
-              <View style={styles.divider} />
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Нийт төлөх</Text>
-                <Text style={styles.infoValue}>{formatCurrency(loan.totalRepayment)}</Text>
-              </View>
-            </>
-          )}
-
-          {loan.paidAmount > 0 && (
-            <>
-              <View style={styles.divider} />
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Төлсөн</Text>
-                <Text style={[styles.infoValue, { color: colors.green }]}>
-                  {formatCurrency(loan.paidAmount)}
-                </Text>
-              </View>
-            </>
-          )}
-
-          {loan.remainingAmount > 0 && (
-            <>
-              <View style={styles.divider} />
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Үлдэгдэл</Text>
-                <Text style={[styles.infoValue, { color: colors.primary, fontSize: 20 }]}>
-                  {formatCurrency(loan.remainingAmount)}
-                </Text>
-              </View>
-            </>
-          )}
-
-          <View style={styles.divider} />
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Хүү</Text>
-            <Text style={styles.infoValue}>{loan.interestRate}%</Text>
-          </View>
-
-          {loan.dueDate && (
-            <>
-              <View style={styles.divider} />
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Төлөх хугацаа</Text>
-                <Text style={styles.infoValue}>{formatDate(loan.dueDate)}</Text>
-              </View>
-            </>
-          )}
-        </Card>
-
-        {/* Dates Card */}
-        <Card style={styles.datesCard}>
-          <Text style={styles.cardTitle}>Огнооны мэдээлэл</Text>
-
-          <View style={styles.dateRow}>
-            <Ionicons name="calendar-outline" size={20} color={colors.lightGray} />
-            <View style={styles.dateInfo}>
-              <Text style={styles.dateLabel}>Үүссэн</Text>
-              <Text style={styles.dateValue}>{formatDate(loan.createdAt)}</Text>
-            </View>
-          </View>
-
-          {loan.approvedAt && (
-            <View style={styles.dateRow}>
-              <Ionicons name="checkmark-circle-outline" size={20} color={colors.green} />
-              <View style={styles.dateInfo}>
-                <Text style={styles.dateLabel}>Зөвшөөрөгдсөн</Text>
-                <Text style={styles.dateValue}>{formatDate(loan.approvedAt)}</Text>
-              </View>
-            </View>
-          )}
-
-          {loan.disbursedAt && (
-            <View style={styles.dateRow}>
-              <Ionicons name="cash-outline" size={20} color={colors.primary} />
-              <View style={styles.dateInfo}>
-                <Text style={styles.dateLabel}>Олгогдсон</Text>
-                <Text style={styles.dateValue}>{formatDate(loan.disbursedAt)}</Text>
-              </View>
-            </View>
-          )}
-
-          {loan.paidAt && (
-            <View style={styles.dateRow}>
-              <Ionicons name="checkmark-done-outline" size={20} color={colors.green} />
-              <View style={styles.dateInfo}>
-                <Text style={styles.dateLabel}>Төлөгдсөн</Text>
-                <Text style={styles.dateValue}>{formatDate(loan.paidAt)}</Text>
-              </View>
-            </View>
-          )}
-        </Card>
-
-        {/* Pay Button */}
-        {canPay && (
-          <View style={styles.buttonContainer}>
-            <Button title="Төлбөр төлөх" onPress={() => setPaymentModal(true)} />
-          </View>
-        )}
-      </ScrollView>
-
-      {/* Payment Modal */}
-      <Modal
-        visible={paymentModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setPaymentModal(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <ScrollView 
-            contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end' }}
-            keyboardShouldPersistTaps="handled"
+        <View style={styles.content}>
+          {/* Status Badge */}
+          <View
+            style={[
+              styles.statusBadge,
+              { backgroundColor: getStatusColor(loan.status) + '20' },
+            ]}
           >
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Төлбөр төлөх</Text>
-                <TouchableOpacity onPress={() => setPaymentModal(false)}>
-                  <Ionicons name="close" size={24} color={colors.white} />
-                </TouchableOpacity>
-              </View>
+            <Text
+              style={[
+                styles.statusText,
+                { color: getStatusColor(loan.status) },
+              ]}
+            >
+              {getStatusText(loan.status)}
+            </Text>
+          </View>
 
-              <View style={styles.modalInfo}>
-                <Text style={styles.modalLabel}>Үлдэгдэл</Text>
-                <Text style={styles.modalValue}>{formatCurrency(loan?.remainingAmount || 0)}</Text>
-              </View>
+          {/* Loan Number */}
+          <Text style={styles.loanNumber}>{loan.loanNumber}</Text>
 
-              <Input
-                label="Төлөх дүн (₮)"
-                placeholder="Дүнгээ оруулна уу"
-                value={paymentAmount}
-                onChangeText={setPaymentAmount}
-                keyboardType="number-pad"
-              />
-
-              <Button title="Төлөх" onPress={handlePayment} loading={paymentLoading} />
+          {/* Amount Card */}
+          <Card style={styles.amountCard}>
+            <View style={styles.amountRow}>
+              <Text style={styles.amountLabel}>Зээлийн дүн</Text>
+              <Text style={styles.amountValue}>
+                {formatCurrency(loan.disbursedAmount || loan.approvedAmount)}
+              </Text>
             </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </Modal>
+
+            {loan.remainingAmount > 0 && (
+              <>
+                <View style={styles.divider} />
+                <View style={styles.amountRow}>
+                  <Text style={styles.amountLabel}>Үлдэгдэл төлөх</Text>
+                  <Text style={[styles.amountValue, { color: colors.primary }]}>
+                    {formatCurrency(loan.remainingAmount)}
+                  </Text>
+                </View>
+              </>
+            )}
+          </Card>
+
+          {/* Details */}
+          <Card style={styles.detailsCard}>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Хугацаа</Text>
+              <Text style={styles.detailValue}>
+                {getTermText(loan.termDays)}
+              </Text>
+            </View>
+
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Хүү</Text>
+              <Text style={styles.detailValue}>{loan.interestRate}%</Text>
+            </View>
+
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Хүүгийн дүн</Text>
+              <Text style={styles.detailValue}>
+                {formatCurrency(loan.interest)}
+              </Text>
+            </View>
+
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Нийт төлөх</Text>
+              <Text style={styles.detailValue}>
+                {formatCurrency(loan.totalAmount)}
+              </Text>
+            </View>
+
+            {loan.dueDate && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Төлөх хугацаа</Text>
+                <Text style={styles.detailValue}>
+                  {formatDate(loan.dueDate)}
+                </Text>
+              </View>
+            )}
+
+            {loan.extensionCount > 0 && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Сунгалтын тоо</Text>
+                <Text style={styles.detailValue}>
+                  {loan.extensionCount} удаа
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Огноо</Text>
+              <Text style={styles.detailValue}>
+                {formatDate(loan.createdAt)}
+              </Text>
+            </View>
+          </Card>
+
+          {/* Actions */}
+          {canPay && (
+            <Button
+              title="Төлбөр төлөх"
+              onPress={handleMakePayment}
+              loading={actionLoading}
+              style={styles.payButton}
+            />
+          )}
+
+          {canExtend && (
+            <Button
+              title="Зээл сунгах"
+              onPress={handleExtendLoan}
+              loading={actionLoading}
+              variant="outline"
+              style={styles.extendButton}
+            />
+          )}
+
+          {/* Info Note */}
+          {canExtend && (
+            <Card style={styles.infoCard}>
+              <Ionicons
+                name="information-circle-outline"
+                size={20}
+                color={colors.primary}
+              />
+              <Text style={styles.infoText}>
+                Зээл сунгах үед зөвхөн хүүгийн дүн төлөгдөнө. Үндсэн зээлийн дүн
+                хэвээр үлдэнэ.
+              </Text>
+            </Card>
+          )}
+
+          {loan.termDays === 14 && (
+            <Card style={[styles.infoCard, { backgroundColor: colors.warning + '10' }]}>
+              <Ionicons
+                name="alert-circle-outline"
+                size={20}
+                color={colors.warning}
+              />
+              <Text style={[styles.infoText, { color: colors.warning }]}>
+                14 хоногийн зээлийг сунгах боломжгүй.
+              </Text>
+            </Card>
+          )}
+
+          {/* Payment History */}
+          {loan.payments && loan.payments.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Төлбөрийн түүх</Text>
+              {loan.payments.map((payment, index) => (
+                <Card key={index} style={styles.paymentCard}>
+                  <View style={styles.paymentRow}>
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={24}
+                      color={colors.green}
+                    />
+                    <View style={styles.paymentInfo}>
+                      <Text style={styles.paymentAmount}>
+                        {formatCurrency(payment.amount)}
+                      </Text>
+                      <Text style={styles.paymentDate}>
+                        {formatDate(payment.date)}
+                      </Text>
+                    </View>
+                  </View>
+                </Card>
+              ))}
+            </View>
+          )}
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -291,10 +422,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   centered: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -309,113 +438,119 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.white,
   },
-  loanNumberSection: {
-    alignItems: 'center',
-    paddingVertical: 24,
-  },
-  loanNumberLabel: {
-    color: colors.lightGray,
-    fontSize: 14,
-    marginBottom: 8,
-  },
-  loanNumber: {
-    color: colors.white,
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  infoCard: {
-    margin: 20,
+  content: {
     padding: 20,
   },
-  infoRow: {
+  statusBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginBottom: 12,
+  },
+  statusText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  loanNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: colors.white,
+    marginBottom: 24,
+  },
+  amountCard: {
+    padding: 20,
+    marginBottom: 16,
+  },
+  amountRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  infoLabel: {
-    color: colors.lightGray,
+  amountLabel: {
     fontSize: 14,
+    color: colors.lightGray,
   },
-  infoValue: {
+  amountValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
     color: colors.white,
-    fontSize: 16,
-    fontWeight: '600',
   },
   divider: {
     height: 1,
     backgroundColor: colors.gray + '30',
-    marginVertical: 12,
+    marginVertical: 16,
   },
-  datesCard: {
-    marginHorizontal: 20,
-    marginBottom: 24,
+  detailsCard: {
     padding: 20,
+    marginBottom: 24,
   },
-  cardTitle: {
-    color: colors.white,
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 16,
-  },
-  dateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  dateInfo: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  dateLabel: {
-    color: colors.lightGray,
-    fontSize: 12,
-    marginBottom: 2,
-  },
-  dateValue: {
-    color: colors.white,
-    fontSize: 14,
-  },
-  buttonContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 40,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: colors.cardBg,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    paddingBottom: 40,
-  },
-  modalHeader: {
+  detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
   },
-  modalTitle: {
-    color: colors.white,
-    fontSize: 20,
-    fontWeight: '600',
-  },
-  modalInfo: {
-    backgroundColor: colors.darkGray,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 20,
-  },
-  modalLabel: {
+  detailLabel: {
+    fontSize: 14,
     color: colors.lightGray,
-    fontSize: 12,
+  },
+  detailValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.white,
+  },
+  payButton: {
+    marginBottom: 12,
+  },
+  extendButton: {
+    marginBottom: 16,
+  },
+  infoCard: {
+    flexDirection: 'row',
+    padding: 16,
+    backgroundColor: colors.primary + '10',
+    marginBottom: 24,
+    gap: 12,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.lightGray,
+    lineHeight: 18,
+  },
+  section: {
+    marginTop: 8,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.white,
+    marginBottom: 16,
+  },
+  paymentCard: {
+    padding: 16,
+    marginBottom: 12,
+  },
+  paymentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  paymentInfo: {
+    flex: 1,
+  },
+  paymentAmount: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.white,
     marginBottom: 4,
   },
-  modalValue: {
-    color: colors.white,
-    fontSize: 24,
-    fontWeight: 'bold',
+  paymentDate: {
+    fontSize: 13,
+    color: colors.lightGray,
+  },
+  errorText: {
+    fontSize: 16,
+    color: colors.lightGray,
   },
 });

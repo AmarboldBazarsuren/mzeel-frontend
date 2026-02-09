@@ -14,6 +14,7 @@ import LoanDetailScreen from '../screens/loans/LoanDetailScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import SettingsScreen from '../screens/settings/SettingsScreen';
 import ProfileFormScreen from '../screens/profile/ProfileFormScreen';
+import RequestLoanScreen from '../screens/loans/RequestLoanScreen';
 
 
 const Tab = createBottomTabNavigator();
@@ -25,6 +26,8 @@ function HomeStack() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="HomeMain" component={HomeScreen} />
       <Stack.Screen name="LoanDetail" component={LoanDetailScreen} />
+            <Stack.Screen name="RequestLoan" component={RequestLoanScreen} />
+
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
             <Stack.Screen name="ProfileForm" component={ProfileFormScreen} />

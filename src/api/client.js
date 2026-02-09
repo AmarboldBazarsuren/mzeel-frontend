@@ -44,45 +44,61 @@ client.interceptors.response.use(
 
 // API functions
 export const api = {
-  // Auth
+  // ===== AUTH =====
   login: (phone, password) => client.post('/auth/login', { phone, password }),
   register: (data) => client.post('/auth/register', data),
   getMe: () => client.get('/auth/me'),
   changePassword: (currentPassword, newPassword) =>
     client.put('/auth/change-password', { currentPassword, newPassword }),
 
-  // Wallet
+  // ===== WALLET =====
   getWallet: () => client.get('/wallet'),
   createDeposit: (amount) => client.post('/wallet/deposit', { amount }),
   checkPayment: (transactionId) => client.post(`/wallet/check-payment/${transactionId}`),
   getWalletHistory: (page = 1) => client.get(`/wallet/history?page=${page}`),
 
-  // Loans
+  // ===== LOANS =====
+  
+  // Зээлийн баталгаажуулалт
   verifyLoan: () => client.post('/loans/verify'),
+  
+  // Зээл авах (хуучин)
   requestLoan: (amount) => client.post('/loans/request', { amount }),
-    requestApprovedLoan: (amount) => client.post('/loans/request-approved', { amount }), 
+  
+  // ✅ Зээл авах (шинэ - termDays параметртай)
+  requestApprovedLoan: (amount, termDays = 30) => 
+    client.post('/loans/request-approved', { amount, termDays }),
 
+  // Миний зээлүүд
   getMyLoans: (page = 1, status) => {
     let url = `/loans/my-loans?page=${page}`;
     if (status) url += `&status=${status}`;
     return client.get(url);
   },
+  
+  // Зээлийн дэлгэрэнгүй
   getLoanDetails: (id) => client.get(`/loans/${id}`),
+  
+  // Зээл төлөх
   payLoan: (id, amount) => client.post(`/loans/${id}/pay`, { amount }),
+  
+  // ✅ ШИНЭ: Зээл сунгах
+  extendLoan: (loanId) => client.post(`/loans/${loanId}/extend`),
 
-  // Profile
+  // ===== PROFILE =====
   getProfile: () => client.get('/profile'),
   createProfile: (data) => client.post('/profile', data),
-// ✅ Profile by user ID
-getProfileByUserId: (userId) => client.get(`/admin/profiles/user/${userId}`),
-  // Transactions
+  // Profile by user ID
+  getProfileByUserId: (userId) => client.get(`/admin/profiles/user/${userId}`),
+  
+  // ===== TRANSACTIONS =====
   getTransactions: (page = 1, type) => {
     let url = `/transactions?page=${page}`;
     if (type) url += `&type=${type}`;
     return client.get(url);
   },
 
-  // Withdrawals
+  // ===== WITHDRAWALS =====
   createWithdrawal: (data) => client.post('/withdrawals', data),
   getMyWithdrawals: (page = 1) => client.get(`/withdrawals?page=${page}`),
   cancelWithdrawal: (id) => client.delete(`/withdrawals/${id}`),
